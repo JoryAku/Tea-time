@@ -1,0 +1,22 @@
+{
+  "recipes": [
+    {
+      "name": "Green Tea",
+      "ingredients": ["Tea Leaf"],
+      "process": "brewRaw",
+      "effect": "pastAction"
+    },
+    {
+      "name": "Black Tea",
+      "ingredients": ["Black Tea Leaf"],
+      "process": "brewProcessed",
+      "effect": "futureAction"
+    },
+    {
+      "name": "Time Tea",
+      "ingredients": ["Green Tea", "Black Tea"],
+      "process": "brewCombined",
+      "effect": "breakTimeLoop"
+    }
+  ]
+}

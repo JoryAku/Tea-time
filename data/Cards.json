@@ -1,0 +1,34 @@
+{
+  "plants": [
+    {
+      "name": "Tea Plant",
+      "states": ["Seedling", "Mature Plant"],
+      "produces": "Tea Leaf"
+    }
+  ],
+  "ingredients": [
+    {
+      "name": "Tea Leaf",
+      "type": "Raw",
+      "processesInto": "Black Tea Leaf",
+      "brewInto": "Green Tea"
+    },
+    {
+      "name": "Black Tea Leaf",
+      "type": "Processed",
+      "brewInto": "Black Tea"
+    }
+  ],
+  "teas": [
+    {
+      "name": "Green Tea",
+      "type": "Tea",
+      "effect": "pastAction"
+    },
+    {
+      "name": "Black Tea",
+      "type": "Tea",
+      "effect": "futureAction"
+    }
+  ]
+}
