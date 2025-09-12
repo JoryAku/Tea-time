@@ -1,34 +1,123 @@
 {
   "plants": [
     {
+      "id": "tea_plant",
       "name": "Tea Plant",
-      "states": ["Seedling", "Mature Plant"],
-      "produces": "Tea Leaf"
+      "species": "Camellia sinensis",
+      "states": {
+        "seed": {
+          "needs": { "season": ["spring"], "resources": ["rain", "sun"] },
+          "vulnerabilities": [
+            { "event": "frost", "outcome": "die" },
+            { "event": "drought", "outcome": "die" }
+          ],
+          "actions": {
+            "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" },
+            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seed", "location": "hand" }
+          }
+        },
+        "seedling": {
+          "needs": { "season": ["spring", "summer"], "resources": ["rain", "sun"] },
+          "vulnerabilities": [
+            { "event": "snow", "outcome": "die" }
+          ],
+          "actions": {
+            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seed", "location": "hand" }
+          }
+        },
+        "mature": {
+          "needs": { "season": ["summer", "autumn"], "resources": ["rain", "sun"] },
+          "vulnerabilities": [
+            { "event": "drought", "outcome": "regress" },
+            { "event": "thunderstorm", "outcome": "die" }
+          ],
+          "actions": {
+            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" }
+          }
+        },
+        "flowering": {
+          "needs": { "season": ["summer", "autumn"], "resources": ["sun", "pollination"] },
+          "vulnerabilities": [
+            { "event": "wind", "outcome": "regress" }
+          ],
+          "actions": {}
+        },
+        "fruiting": {
+          "needs": { "season": ["autumn"], "resources": ["sun", "rain"] },
+          "vulnerabilities": [
+            { "event": "frost", "outcome": "die" }
+          ],
+          "actions": {
+            "harvest_seed": { "effect": "add_card", "target": "tea_seed", "location": "shed", "state": "seed" }
+          }
+        },
+        "dead": {
+          "actions": {
+            "compost": { "effect": "add_card", "target": "fertilizer_token", "location": "shed" }
+          }
+        }
+      }
     }
   ],
   "ingredients": [
     {
-      "name": "Tea Leaf",
-      "type": "Raw",
-      "processesInto": "Black Tea Leaf",
-      "brewInto": "Green Tea"
+      "id": "tea_leaf_raw",
+      "name": "Tea Leaf (Raw)",
+      "actions": {
+        "process": { "effect": "add_card", "target": "oolong_leaf", "location": "kitchen", "state": "processed" },
+        "brew": { "effect": "add_card", "target": "green_tea", "location": "cafe" }
+      }
     },
     {
+      "id": "oolong_leaf",
+      "name": "Oolong Tea Leaf",
+      "actions": {
+        "process": { "effect": "add_card", "target": "black_leaf", "location": "kitchen", "state": "processed" },
+        "brew": { "effect": "add_card", "target": "oolong_tea", "location": "cafe" }
+      }
+    },
+    {
+      "id": "black_leaf",
       "name": "Black Tea Leaf",
-      "type": "Processed",
-      "brewInto": "Black Tea"
+      "actions": {
+        "brew": { "effect": "add_card", "target": "black_tea", "location": "cafe" }
+      }
+    },
+    {
+      "id": "tea_seed",
+      "name": "Tea Seed",
+      "actions": {}
+    },
+    {
+      "id": "fertilizer_token",
+      "name": "Fertilizer Token",
+      "actions": {}
     }
   ],
   "teas": [
     {
+      "id": "green_tea",
       "name": "Green Tea",
       "type": "Tea",
-      "effect": "pastAction"
+      "actions": {
+        "consume": { "effect": "apply_effect", "target": { "type": "peek_weather", "value": 1 } }
+      }
     },
     {
+      "id": "oolong_tea",
+      "name": "Oolong Tea",
+      "type": "Tea",
+      "actions": {
+        "consume": { "effect": "apply_effect", "target": { "type": "past_action", "value": 1 } }
+      }
+    },
+    {
+      "id": "black_tea",
       "name": "Black Tea",
       "type": "Tea",
-      "effect": "futureAction"
+      "actions": {
+        "consume": { "effect": "apply_effect", "target": { "type": "future_action", "value": 1 } }
+      }
     }
   ]
 }

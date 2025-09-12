@@ -1,27 +1,39 @@
-// Card.js
-
 class Card {
-  constructor(name, type, state) {
-    this.name = name;       // e.g., 'Tea Plant', 'Tea Leaf', 'Green Tea'
-    this.type = type;       // e.g., 'Seedling', 'Mature Plant', 'Raw', 'Processed', 'Tea'
-    this.state = state;     // e.g., 'inDeck', 'inHand', 'inField', 'processed'
+  constructor(definition, state = null) {
+    if (!definition) throw new Error("Card requires a definition");
+    this.definition = definition;
+    // choose a default state if none provided
+    if (state) this.state = state;
+    else if (definition.defaultState) this.state = definition.defaultState;
+    else if (definition.states) this.state = Object.keys(definition.states)[0];
+    else this.state = "default";
+
+    // track which resources (sun/rain/etc) this plant saw during current season
+    this.resourcesThisSeason = new Set();
+  }
+
+  get name() {
+    return this.definition.name;
+  }
+
+  get type() {
+    return this.definition.type || "Card";
+  }
+
+  // returns the actions available for the current state of this card
+  getActions() {
+    if (this.definition.states && this.definition.states[this.state] && this.definition.states[this.state].actions) {
+      return this.definition.states[this.state].actions;
+    }
+    return {};
   }
 
   canPerformAction(action) {
-    switch(this.type) {
-      case 'Seedling':
-        return action === 'plant';
-      case 'Mature Plant':
-        return action === 'harvest';
-      case 'Raw':
-        return action === 'brewRaw' || action === 'processRaw';
-      case 'Processed':
-        return action === 'brewProcessed';
-      case 'Tea':
-        return action === 'consume';
-      default:
-        return false;
-    }
+    return Object.prototype.hasOwnProperty.call(this.getActions(), action);
+  }
+
+  resetSeasonResources() {
+    this.resourcesThisSeason.clear();
   }
 }
 

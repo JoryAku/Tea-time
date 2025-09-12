@@ -1,0 +1,28 @@
+{
+  "spring": [
+    { "event": "rain", "pct": 40 },
+    { "event": "sun", "pct": 30 },
+    { "event": "cloud", "pct": 20 },
+    { "event": "wind", "pct": 10 }
+  ],
+  "summer": [
+    { "event": "sun", "pct": 40 },
+    { "event": "drought", "pct": 25 },
+    { "event": "rain", "pct": 20 },
+    { "event": "thunderstorm", "pct": 10 },
+    { "event": "clear_night", "pct": 5 }
+  ],
+  "autumn": [
+    { "event": "frost", "pct": 25 },
+    { "event": "sun", "pct": 25 },
+    { "event": "rain", "pct": 20 },
+    { "event": "wind", "pct": 15 },
+    { "event": "cloud", "pct": 15 }
+  ],
+  "winter": [
+    { "event": "rain", "pct": 30 },
+    { "event": "frost", "pct": 30 },
+    { "event": "cloud", "pct": 25 },
+    { "event": "snow", "pct": 15 }
+  ]
+}
