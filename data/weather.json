@@ -1,28 +1,31 @@
 {
   "spring": [
-    { "event": "rain", "pct": 40 },
-    { "event": "sun", "pct": 30 },
-    { "event": "cloud", "pct": 20 },
-    { "event": "wind", "pct": 10 }
+    { "event": "rain", "pct": 35, "conditions": ["water"] },
+    { "event": "sun", "pct": 30, "conditions": ["sunlight"] },
+    { "event": "cloud", "pct": 10, "conditions": ["cloud"] },
+    { "event": "wind", "pct": 5, "conditions": ["wind"] },
+    { "event": "pests", "pct": 5, "conditions": ["pests"] }
   ],
   "summer": [
-    { "event": "sun", "pct": 40 },
-    { "event": "drought", "pct": 25 },
-    { "event": "rain", "pct": 20 },
-    { "event": "thunderstorm", "pct": 10 },
-    { "event": "clear_night", "pct": 5 }
+    { "event": "sun", "pct": 45, "conditions": ["sunlight"] },
+    { "event": "drought", "pct": 20, "conditions": ["drought"] },
+    { "event": "rain", "pct": 20, "conditions": ["water"] },
+    { "event": "thunderstorm", "pct": 10, "conditions": ["water", "wind"] },
+    { "event": "clear_night", "pct": 5, "conditions": ["clear_night"] }
   ],
   "autumn": [
-    { "event": "frost", "pct": 25 },
-    { "event": "sun", "pct": 25 },
-    { "event": "rain", "pct": 20 },
-    { "event": "wind", "pct": 15 },
-    { "event": "cloud", "pct": 15 }
+    { "event": "frost", "pct": 5, "conditions": ["frost"] },
+    { "event": "sun", "pct": 25, "conditions": ["sunlight"] },
+    { "event": "rain", "pct": 20, "conditions": ["water"] },
+    { "event": "wind", "pct": 20, "conditions": ["wind"] },
+    { "event": "cloud", "pct": 15, "conditions": ["cloud"] },
+    { "event": "pests", "pct": 5, "conditions": ["pests"] }
   ],
   "winter": [
-    { "event": "rain", "pct": 30 },
-    { "event": "frost", "pct": 30 },
-    { "event": "cloud", "pct": 25 },
-    { "event": "snow", "pct": 15 }
+    { "event": "rain", "pct": 30, "conditions": ["water"] },
+    { "event": "frost", "pct": 10, "conditions": ["frost"] },
+    { "event": "cloud", "pct": 30, "conditions": ["cloud"] },
+    { "event": "snow", "pct": 5, "conditions": ["snow"] },
+    { "event": "sun", "pct": 25, "conditions": ["sunlight"] }
   ]
 }

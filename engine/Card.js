@@ -10,6 +10,19 @@ class Card {
 
     // track which resources (sun/rain/etc) this plant saw during current season
     this.resourcesThisSeason = new Set();
+    // track active weather conditions and their remaining duration (2 actions)
+    this.activeConditions = {};
+    // track how many seasons/actions spent in current state
+    this.stateProgress = 0;
+    // track plant age in years (incremented at each year end)
+    this.age = 0;
+    // assign a random lifespan if defined
+    if (definition.lifespan) {
+      const { min, max } = definition.lifespan;
+      this.lifespan = (min === max) ? min : (Math.floor(Math.random() * (max - min + 1)) + min);
+    } else {
+      this.lifespan = null;
+    }
   }
 
   get name() {
@@ -34,6 +47,22 @@ class Card {
 
   resetSeasonResources() {
     this.resourcesThisSeason.clear();
+    this.activeConditions = {};
+  }
+
+  // Called each action to decrement condition timers and remove expired
+  tickActiveConditions() {
+    for (const cond in this.activeConditions) {
+      this.activeConditions[cond]--;
+      if (this.activeConditions[cond] <= 0) {
+        delete this.activeConditions[cond];
+      }
+    }
+  }
+
+  // Call this when the card changes state
+  resetStateProgress() {
+    this.stateProgress = 0;
   }
 }
 
