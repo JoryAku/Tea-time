@@ -12,7 +12,8 @@
             { "event": "drought", "outcome": "die" }
           ],
           "actions": {
-            "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" }
+            "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" },
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 }
           },
           "transitions": [
             { "to": "seedling", "actions": { "min": 1, "max": 2 } }
@@ -25,7 +26,9 @@
             { "event": "frost", "outcome": "die" }
           ],
           "actions": {
-            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seedling", "location": "hand" }
+            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seedling", "location": "hand" },
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
           },
           "transitions": [
             { "to": "mature", "actions": { "min": 36, "max": 36 } }
@@ -34,10 +37,14 @@
         "mature": {
           "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer", "autumn", "winter"] },
           "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" },
             { "event": "pests", "outcome": "die" }
           ],
           "actions": {
-            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" }
+            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" },
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
           },
           "transitions": [
             { "to": "flowering", "actions": { "min": 4, "max": 12 } }
@@ -46,10 +53,15 @@
         "flowering": {
           "needs": { "resources": ["sunlight", "water"], "season": ["spring"] },
           "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" },
             { "event": "pests", "outcome": "die" },
             { "event": "disease", "outcome": "die" }
           ],
-          "actions": {},
+          "actions": {
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
+          },
           "transitions": [
             { "to": "fruiting", "actions": { "min": 3, "max": 3 } }
           ]
@@ -57,11 +69,15 @@
         "fruiting": {
           "needs": { "resources": ["sunlight", "water"], "season": ["summer"] },
           "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" },
             { "event": "pests", "outcome": "die" },
             { "event": "disease", "outcome": "die" }
           ],
           "actions": {
-            "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" }
+            "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" },
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
           },
           "transitions": [
             { "to": "seed", "actions": { "min": 3, "max": 3 } }
