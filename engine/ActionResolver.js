@@ -71,6 +71,14 @@ module.exports = {
         }
         break;
 
+      case "protect_plant":
+        // Apply protective condition to the plant
+        const condition = actionDef.condition;
+        const duration = actionDef.duration || 2; // Default to 2 actions like weather events
+        card.activeConditions[condition] = duration;
+        console.log(`🛡️ Applied ${condition} protection to ${card.name} for ${duration} actions.`);
+        break;
+
       default:
         console.log("Unknown effect type:", actionDef.effect);
         return false;
