@@ -42,7 +42,7 @@
             { "event": "pests", "outcome": "die" }
           ],
           "actions": {
-            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" },
+            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen", "removeOriginal": false },
             "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
             "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
           },

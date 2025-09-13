@@ -38,11 +38,14 @@ module.exports = {
 
     // Special handling for oxidation continuation
     if (card.definition.id === 'tea_leaf_oxidizing' && card.oxidationActionsLeft > 0) {
-      // For oxidizing tea, progress the oxidation
-      card.oxidationActionsLeft--;
-      card.oxidationProgress++;
-      console.log(`🫖 Continuing oxidation... ${card.oxidationActionsLeft} actions remaining.`);
-      return true;
+      // Only continue oxidation if action is not 'dry' or 'fix' (which can interrupt oxidation)
+      if (action !== 'dry' && action !== 'fix') {
+        // For oxidizing tea, progress the oxidation
+        card.oxidationActionsLeft--;
+        card.oxidationProgress++;
+        console.log(`🫖 Continuing oxidation... ${card.oxidationActionsLeft} actions remaining.`);
+        return true;
+      }
     }
 
     // Handle action effects defined in JSON:

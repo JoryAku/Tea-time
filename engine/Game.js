@@ -296,18 +296,22 @@ class Game {
   // Progress oxidation on tea leaves in kitchen
   progressOxidation() {
     this.player.kitchen.forEach((card, idx) => {
-      if (card.definition.id === 'tea_leaf_oxidizing' && card.oxidationActionsLeft > 0) {
-        card.oxidationActionsLeft--;
-        console.log(`🫖 ${card.name} oxidation continues... ${card.oxidationActionsLeft} actions remaining.`);
-        
-        // Check for overoxidation (too many actions spent oxidizing)
+      if (card.definition.id === 'tea_leaf_oxidizing') {
+        // Check for overoxidation first (too many actions spent oxidizing)
         if (card.oxidationProgress > 3) { // Overoxidation threshold
           const deadCard = this.createCard('dead_leaves');
           this.player.kitchen[idx] = deadCard;
           console.log(`💀 ${card.name} overoxidized and became dead leaves.`);
+          return;
         }
-        else if (card.oxidationActionsLeft === 0) {
-          console.log(`🫖 ${card.name} oxidation complete. Can now be dried or fixed.`);
+        
+        if (card.oxidationActionsLeft > 0) {
+          card.oxidationActionsLeft--;
+          console.log(`🫖 ${card.name} oxidation continues... ${card.oxidationActionsLeft} actions remaining.`);
+          
+          if (card.oxidationActionsLeft === 0) {
+            console.log(`🫖 ${card.name} oxidation complete. Can now be dried or fixed.`);
+          }
         }
       }
     });
