@@ -97,8 +97,7 @@ function promptAction() {
     } else {
       const success = ActionResolver.resolve(action, game);
       if (success) {
-        // reduce action only if action succeeded
-        if (game.player.actionsLeft > 0) game.player.actionsLeft -= 1;
+        // Action cost is handled inside ActionResolver now
         // after each action, trigger weather
         game.triggerWeather();
       }

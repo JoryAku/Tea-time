@@ -36,6 +36,17 @@ class Player {
     return this[zone][index];
   }
 
+  // Find which location a card is currently in
+  findCardLocation(card) {
+    const zones = ["hand", "garden", "shed", "kitchen", "cafe"];
+    for (const zone of zones) {
+      if (this[zone].includes(card)) {
+        return zone;
+      }
+    }
+    return null;
+  }
+
   // produce a list of strings like "clone hand 0" "plant hand 0" etc.
   getAvailableActions() {
     const actions = [];
@@ -62,7 +73,12 @@ class Player {
         console.log("  (empty)");
       } else {
         this[zone].forEach((card, i) => {
-          console.log(`  ${i}: ${card.name} [${card.state}]`);
+          let display = `  ${i}: ${card.name} [${card.state}]`;
+          // Show oxidation progress if relevant
+          if (card.oxidationActionsLeft > 0) {
+            display += ` (${card.oxidationActionsLeft} oxidation actions left)`;
+          }
+          console.log(display);
         });
       }
     });

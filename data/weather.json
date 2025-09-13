@@ -1,25 +1,29 @@
 {
   "spring": [
-    { "event": "rain", "pct": 35, "conditions": ["water"] },
-    { "event": "sun", "pct": 30, "conditions": ["sunlight"] },
+    { "event": "rain", "pct": 30, "conditions": ["water"] },
+    { "event": "sun", "pct": 25, "conditions": ["sunlight"] },
     { "event": "cloud", "pct": 10, "conditions": ["cloud"] },
-    { "event": "wind", "pct": 5, "conditions": ["wind"] },
-    { "event": "pests", "pct": 5, "conditions": ["pests"] }
+    { "event": "wind", "pct": 10, "conditions": ["wind"] },
+    { "event": "pests", "pct": 5, "conditions": ["pests"] },
+    { "event": "rot", "pct": 15, "conditions": ["rot"] },
+    { "event": "heat", "pct": 5, "conditions": ["heat"] }
   ],
   "summer": [
-    { "event": "sun", "pct": 45, "conditions": ["sunlight"] },
-    { "event": "drought", "pct": 20, "conditions": ["drought"] },
-    { "event": "rain", "pct": 20, "conditions": ["water"] },
+    { "event": "sun", "pct": 35, "conditions": ["sunlight"] },
+    { "event": "heat", "pct": 20, "conditions": ["heat"] },
+    { "event": "drought", "pct": 15, "conditions": ["drought"] },
+    { "event": "rain", "pct": 15, "conditions": ["water"] },
     { "event": "thunderstorm", "pct": 10, "conditions": ["water", "wind"] },
     { "event": "clear_night", "pct": 5, "conditions": ["clear_night"] }
   ],
   "autumn": [
     { "event": "frost", "pct": 5, "conditions": ["frost"] },
-    { "event": "sun", "pct": 25, "conditions": ["sunlight"] },
-    { "event": "rain", "pct": 20, "conditions": ["water"] },
+    { "event": "sun", "pct": 20, "conditions": ["sunlight"] },
+    { "event": "rain", "pct": 15, "conditions": ["water"] },
     { "event": "wind", "pct": 20, "conditions": ["wind"] },
     { "event": "cloud", "pct": 15, "conditions": ["cloud"] },
-    { "event": "pests", "pct": 5, "conditions": ["pests"] }
+    { "event": "pests", "pct": 5, "conditions": ["pests"] },
+    { "event": "rot", "pct": 20, "conditions": ["rot"] }
   ],
   "winter": [
     { "event": "rain", "pct": 30, "conditions": ["water"] },

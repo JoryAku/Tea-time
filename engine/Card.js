@@ -23,6 +23,10 @@ class Card {
     } else {
       this.lifespan = null;
     }
+
+    // Tea processing specific properties
+    this.oxidationProgress = 0;
+    this.oxidationActionsLeft = 0;
   }
 
   get name() {
@@ -35,8 +39,13 @@ class Card {
 
   // returns the actions available for the current state of this card
   getActions() {
+    // First check if the card has states and current state has actions
     if (this.definition.states && this.definition.states[this.state] && this.definition.states[this.state].actions) {
       return this.definition.states[this.state].actions;
+    }
+    // If no states, check for actions at the root level (for ingredients)
+    if (this.definition.actions) {
+      return this.definition.actions;
     }
     return {};
   }
