@@ -14,17 +14,18 @@
     { "event": "clear_night", "pct": 5, "conditions": ["clear_night"] }
   ],
   "autumn": [
-    { "event": "frost", "pct": 20, "conditions": ["frost"] },
+    { "event": "frost", "pct": 5, "conditions": ["frost"] },
     { "event": "sun", "pct": 25, "conditions": ["sunlight"] },
     { "event": "rain", "pct": 20, "conditions": ["water"] },
-    { "event": "wind", "pct": 10, "conditions": ["wind"] },
-    { "event": "cloud", "pct": 10, "conditions": ["cloud"] },
+    { "event": "wind", "pct": 20, "conditions": ["wind"] },
+    { "event": "cloud", "pct": 15, "conditions": ["cloud"] },
     { "event": "pests", "pct": 5, "conditions": ["pests"] }
   ],
   "winter": [
     { "event": "rain", "pct": 30, "conditions": ["water"] },
-    { "event": "frost", "pct": 35, "conditions": ["frost"] },
-    { "event": "cloud", "pct": 20, "conditions": ["cloud"] },
-    { "event": "snow", "pct": 15, "conditions": ["snow"] }
+    { "event": "frost", "pct": 10, "conditions": ["frost"] },
+    { "event": "cloud", "pct": 30, "conditions": ["cloud"] },
+    { "event": "snow", "pct": 5, "conditions": ["snow"] },
+    { "event": "sun", "pct": 25, "conditions": ["sunlight"] }
   ]
 }

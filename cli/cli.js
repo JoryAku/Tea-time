@@ -25,9 +25,7 @@ function showState() {
       let conds = [];
       if (card.activeConditions) {
         for (const [cond, turns] of Object.entries(card.activeConditions)) {
-          for (let i = turns; i > 0; i--) {
-            conds.push(`${cond} (${i} turns left)`);
-          }
+          conds.push(`${cond} (${turns} turns left)`);
         }
       }
       if (conds.length > 0) {

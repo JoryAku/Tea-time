@@ -9,8 +9,7 @@
         "seed": {
           "needs": { "resources": ["water"], "season": ["spring", "summer"] },
           "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" }
+            { "event": "drought", "outcome": "die" }
           ],
           "actions": {
             "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" }
@@ -35,8 +34,6 @@
         "mature": {
           "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer", "autumn", "winter"] },
           "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" },
             { "event": "pests", "outcome": "die" }
           ],
           "actions": {
@@ -49,8 +46,6 @@
         "flowering": {
           "needs": { "resources": ["sunlight", "water"], "season": ["spring"] },
           "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" },
             { "event": "pests", "outcome": "die" },
             { "event": "disease", "outcome": "die" }
           ],
@@ -62,8 +57,6 @@
         "fruiting": {
           "needs": { "resources": ["sunlight", "water"], "season": ["summer"] },
           "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" },
             { "event": "pests", "outcome": "die" },
             { "event": "disease", "outcome": "die" }
           ],

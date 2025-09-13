@@ -128,20 +128,30 @@ class Game {
       const stageDef = card.definition.states[card.state];
       if (!stageDef) return;
 
+      // Add/refresh event conditions for 2 actions
+      for (const cond of conditions) {
+        card.activeConditions[cond] = 2;
+      }
+
       // check vulnerabilities first (immediate)
       const vulns = stageDef.vulnerabilities || [];
       for (const v of vulns) {
         if (v.event === event) {
+          // IMMUNITY: If plant has 'water' condition, immune to 'drought' vulnerability
+          if (event === 'drought' && card.activeConditions['water']) {
+            console.log(`💧 ${card.name} is immune to drought due to water condition.`);
+            continue;
+          }
+          // IMMUNITY: If plant has 'sunlight' condition, immune to 'frost' vulnerability
+          if (event === 'frost' && card.activeConditions['sunlight']) {
+            console.log(`☀️ ${card.name} is immune to frost due to sunlight condition.`);
+            continue;
+          }
           // Any vulnerability met should send plant to 'dead' state
           card.state = "dead";
           console.log(`☠️ ${card.name} died (was ${stageDef.name || card.state}) due to ${event} (vulnerability met).`);
           return; // stop processing this card
         }
-      }
-
-      // Add/refresh event conditions for 2 actions
-      for (const cond of conditions) {
-        card.activeConditions[cond] = 2;
       }
 
       // if event fulfills a needed resource for current stage, record it
@@ -160,9 +170,6 @@ class Game {
   endSeasonProcessing() {
     console.log("\n--- Season end: checking plant progression ---");
     const current = this.currentSeason;
-    // We need to track which cards are to be removed and which to add
-    const toRemove = [];
-    const toAdd = [];
     this.player.garden.forEach((card, idx) => {
       const stageDef = card.definition.states[card.state];
       if (!stageDef) return;

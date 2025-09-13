@@ -25,23 +25,23 @@ function logStage(stage, actions) {
 
 function simulateLifecycle() {
   let actions = 0;
-  let stage = 0;
-  logStage(STAGES[stage], actions);
+  let stageIndex = 0;
+  logStage(STAGES[stageIndex], actions);
 
   // Seed → Seedling
   actions += SEEDLING_TRANSITION;
-  stage = 1;
-  logStage(STAGES[stage], actions);
+  stageIndex = 1;
+  logStage(STAGES[stageIndex], actions);
 
   // Seedling → Mature
   actions += MATURE_TRANSITION;
-  stage = 2;
-  logStage(STAGES[stage], actions);
+  stageIndex = 2;
+  logStage(STAGES[stageIndex], actions);
 
   // Mature → Fruiting
   actions += FRUITING_TRANSITION;
-  stage = 3;
-  logStage(STAGES[stage], actions);
+  stageIndex = 3;
+  logStage(STAGES[stageIndex], actions);
 
   // Fruiting produces a new seed
   console.log(`Fruiting! New seed produced after ${actions} actions.`);
