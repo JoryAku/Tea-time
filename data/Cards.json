@@ -4,57 +4,93 @@
       "id": "tea_plant",
       "name": "Tea Plant",
       "species": "Camellia sinensis",
+      "lifespan": { "min": 30, "max": 50 },
       "states": {
         "seed": {
-          "needs": { "season": ["spring"], "resources": ["rain", "sun"] },
+          "needs": { "resources": ["water"], "season": ["spring", "summer"] },
           "vulnerabilities": [
-            { "event": "frost", "outcome": "die" },
-            { "event": "drought", "outcome": "die" }
-          ],
-          "actions": {
-            "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" },
-            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seed", "location": "hand" }
-          }
-        },
-        "seedling": {
-          "needs": { "season": ["spring", "summer"], "resources": ["rain", "sun"] },
-          "vulnerabilities": [
-            { "event": "snow", "outcome": "die" }
-          ],
-          "actions": {
-            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seed", "location": "hand" }
-          }
-        },
-        "mature": {
-          "needs": { "season": ["summer", "autumn"], "resources": ["rain", "sun"] },
-          "vulnerabilities": [
-            { "event": "drought", "outcome": "regress" },
-            { "event": "thunderstorm", "outcome": "die" }
-          ],
-          "actions": {
-            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" }
-          }
-        },
-        "flowering": {
-          "needs": { "season": ["summer", "autumn"], "resources": ["sun", "pollination"] },
-          "vulnerabilities": [
-            { "event": "wind", "outcome": "regress" }
-          ],
-          "actions": {}
-        },
-        "fruiting": {
-          "needs": { "season": ["autumn"], "resources": ["sun", "rain"] },
-          "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
             { "event": "frost", "outcome": "die" }
           ],
           "actions": {
-            "harvest_seed": { "effect": "add_card", "target": "tea_seed", "location": "shed", "state": "seed" }
-          }
+            "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" }
+          },
+          "transitions": [
+            { "to": "seedling", "actions": { "min": 1, "max": 2 } }
+          ]
+        },
+        "seedling": {
+          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer"] },
+          "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" }
+          ],
+          "actions": {
+            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seedling", "location": "hand" }
+          },
+          "transitions": [
+            { "to": "mature", "actions": { "min": 36, "max": 36 } }
+          ]
+        },
+        "mature": {
+          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer", "autumn", "winter"] },
+          "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" },
+            { "event": "pests", "outcome": "die" }
+          ],
+          "actions": {
+            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" }
+          },
+          "transitions": [
+            { "to": "flowering", "actions": { "min": 4, "max": 12 } }
+          ]
+        },
+        "flowering": {
+          "needs": { "resources": ["sunlight", "water"], "season": ["spring"] },
+          "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" },
+            { "event": "pests", "outcome": "die" },
+            { "event": "disease", "outcome": "die" }
+          ],
+          "actions": {},
+          "transitions": [
+            { "to": "fruiting", "actions": { "min": 3, "max": 3 } }
+          ]
+        },
+        "fruiting": {
+          "needs": { "resources": ["sunlight", "water"], "season": ["summer"] },
+          "vulnerabilities": [
+            { "event": "drought", "outcome": "die" },
+            { "event": "frost", "outcome": "die" },
+            { "event": "pests", "outcome": "die" },
+            { "event": "disease", "outcome": "die" }
+          ],
+          "actions": {
+            "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" }
+          },
+          "transitions": [
+            { "to": "seed", "actions": { "min": 3, "max": 3 } }
+          ]
         },
         "dead": {
+          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer", "autumn", "winter"] },
+          "vulnerabilities": [],
+          "actions": {
+            "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" }
+          },
+          "transitions": [
+            { "to": "compost", "actions": { "min": 3, "max": 6 } }
+          ]
+        },
+        "compost": {
+          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer"] },
+          "vulnerabilities": [],
           "actions": {
             "compost": { "effect": "add_card", "target": "fertilizer_token", "location": "shed" }
-          }
+          },
+          "transitions": []
         }
       }
     }
