@@ -29,6 +29,22 @@ module.exports = {
       return false;
     }
 
+    // Check if player has enough actions left
+    const actionCost = actionDef.cost || 1;
+    if (game.player.actionsLeft < actionCost) {
+      console.log(`❌ Not enough actions left. This action requires ${actionCost} action(s).`);
+      return false;
+    }
+
+    // Special handling for oxidation continuation
+    if (card.definition.id === 'tea_leaf_oxidizing' && card.oxidationActionsLeft > 0) {
+      // For oxidizing tea, progress the oxidation
+      card.oxidationActionsLeft--;
+      card.oxidationProgress++;
+      console.log(`🫖 Continuing oxidation... ${card.oxidationActionsLeft} actions remaining.`);
+      return true;
+    }
+
     // Handle action effects defined in JSON:
     switch (actionDef.effect) {
       case "move_card":
@@ -43,8 +59,44 @@ module.exports = {
         try {
           const newCard = game.createCard(actionDef.target, actionDef.state);
           game.player.addCardToLocation(newCard, actionDef.location);
+          // Remove the original card if it's a consumption action
+          if (actionDef.removeOriginal !== false) {
+            game.player.removeCardFromCurrentLocation(card);
+          }
         } catch (err) {
           console.error("Failed to add card:", err.message);
+          return false;
+        }
+        break;
+
+      case "transform_card":
+        // Transform the current card into a different card type
+        try {
+          const newCard = game.createCard(actionDef.target);
+          // Preserve any relevant properties from the original card
+          if (card.oxidationProgress) newCard.oxidationProgress = card.oxidationProgress;
+          // Remove old card and add new one in same location
+          const currentLocation = game.player.findCardLocation(card);
+          game.player.removeCardFromCurrentLocation(card);
+          game.player.addCardToLocation(newCard, currentLocation);
+        } catch (err) {
+          console.error("Failed to transform card:", err.message);
+          return false;
+        }
+        break;
+
+      case "start_oxidation":
+        // Start the oxidation process (2 actions required)
+        try {
+          const newCard = game.createCard(actionDef.target);
+          newCard.oxidationProgress = 1; // First action of oxidation
+          newCard.oxidationActionsLeft = actionDef.cost - 1; // Remaining actions
+          const currentLocation = game.player.findCardLocation(card);
+          game.player.removeCardFromCurrentLocation(card);
+          game.player.addCardToLocation(newCard, currentLocation);
+          console.log(`🫖 Started oxidation process. ${newCard.oxidationActionsLeft} more action(s) needed.`);
+        } catch (err) {
+          console.error("Failed to start oxidation:", err.message);
           return false;
         }
         break;
@@ -84,6 +136,9 @@ module.exports = {
         return false;
     }
 
+    // Deduct action cost
+    game.player.actionsLeft -= actionCost;
+    
     return true;
   },
 };
