@@ -42,7 +42,7 @@
             { "event": "pests", "outcome": "die" }
           ],
           "actions": {
-            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen" },
+            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen", "removeOriginal": false },
             "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
             "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
           },
@@ -109,23 +109,66 @@
       "id": "tea_leaf_raw",
       "name": "Tea Leaf (Raw)",
       "actions": {
-        "process": { "effect": "add_card", "target": "oolong_leaf", "location": "kitchen", "state": "processed" },
-        "brew": { "effect": "add_card", "target": "green_tea", "location": "cafe" }
+        "wither": { "effect": "transform_card", "target": "tea_leaf_withered", "cost": 1 },
+        "fix": { "effect": "transform_card", "target": "tea_leaf_green", "cost": 1 },
+        "oxidize": { "effect": "start_oxidation", "target": "tea_leaf_oxidizing", "cost": 2 }
+      },
+      "vulnerabilities": [
+        { "event": "rot", "outcome": "dead" }
+      ]
+    },
+    {
+      "id": "tea_leaf_withered",
+      "name": "Tea Leaf (Withered)",
+      "actions": {
+        "roll": { "effect": "transform_card", "target": "tea_leaf_rolled", "cost": 1 }
+      },
+      "vulnerabilities": [
+        { "event": "rot", "outcome": "dead" }
+      ]
+    },
+    {
+      "id": "tea_leaf_rolled",
+      "name": "Tea Leaf (Rolled)",
+      "actions": {
+        "oxidize": { "effect": "start_oxidation", "target": "tea_leaf_oxidizing", "cost": 2 }
       }
     },
     {
-      "id": "oolong_leaf",
-      "name": "Oolong Tea Leaf",
+      "id": "tea_leaf_oxidizing",
+      "name": "Tea Leaf (Oxidizing)",
       "actions": {
-        "process": { "effect": "add_card", "target": "black_leaf", "location": "kitchen", "state": "processed" },
-        "brew": { "effect": "add_card", "target": "oolong_tea", "location": "cafe" }
+        "dry": { "effect": "transform_card", "target": "tea_leaf_black", "cost": 1 },
+        "fix": { "effect": "transform_card", "target": "tea_leaf_oolong", "cost": 1 }
+      },
+      "overoxidation_risk": true
+    },
+    {
+      "id": "tea_leaf_green",
+      "name": "Tea Leaf (Green)",
+      "actions": {
+        "brew": { "effect": "add_card", "target": "green_tea", "location": "cafe", "cost": 1 }
       }
     },
     {
-      "id": "black_leaf",
-      "name": "Black Tea Leaf",
+      "id": "tea_leaf_black",
+      "name": "Tea Leaf (Black)",
       "actions": {
-        "brew": { "effect": "add_card", "target": "black_tea", "location": "cafe" }
+        "brew": { "effect": "add_card", "target": "black_tea", "location": "cafe", "cost": 1 }
+      }
+    },
+    {
+      "id": "tea_leaf_oolong",
+      "name": "Tea Leaf (Oolong)",
+      "actions": {
+        "brew": { "effect": "add_card", "target": "oolong_tea", "location": "cafe", "cost": 1 }
+      }
+    },
+    {
+      "id": "dead_leaves",
+      "name": "Dead Leaves",
+      "actions": {
+        "compost": { "effect": "add_card", "target": "fertilizer_token", "location": "shed", "cost": 1 }
       }
     },
     {
