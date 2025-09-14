@@ -315,18 +315,14 @@ class TeaTimeEngine {
     }
     
     // Store the locked prediction for this plant
-    const plantKey = this.generatePlantKey(plantCard);
-    this.lockedPredictions.set(plantKey, {
-      deathInfo: deathInfo,
-      actionsSimulated: actionsToSimulate,
-      currentAction: 0
-    });
+    const plantKey = this.storePlantPrediction(plantCard, deathInfo, actionsToSimulate);
     
     return {
       alive: !deathInfo,
       deathInfo: deathInfo,
       finalState: simulatedPlant.state,
-      finalAge: simulatedPlant.age
+      finalAge: simulatedPlant.age,
+      predictionKey: plantKey
     };
   }
 
@@ -413,9 +409,20 @@ class TeaTimeEngine {
     return { dies: false };
   }
 
-  // Generate unique key for plant tracking
-  generatePlantKey(plant) {
-    return `${plant.definition.id}_${plant.state}_${Date.now()}_${Math.random()}`;
+  // Store locked prediction for this plant
+  storePlantPrediction(plantCard, deathInfo, actionsSimulated) {
+    if (!this.lockedPredictions) this.lockedPredictions = new Map();
+    
+    // Use a simple but more reliable tracking method
+    const plantKey = `plant_${this.player.garden.indexOf(plantCard)}`;
+    this.lockedPredictions.set(plantKey, {
+      plantIndex: this.player.garden.indexOf(plantCard),
+      deathInfo: deathInfo,
+      actionsSimulated: actionsSimulated,
+      currentAction: 0
+    });
+    
+    return plantKey;
   }
 
   // Check and enforce locked predictions
@@ -437,30 +444,27 @@ class TeaTimeEngine {
       
       // If we've reached the predicted death action, check if plant is still vulnerable
       if (prediction.deathInfo && prediction.currentAction >= prediction.deathInfo.action) {
-        // Check if any protections would save the plant now
-        const matchingPlants = this.player.garden.filter(card => 
-          card.definition.id === 'tea_plant' && 
-          prediction.deathInfo
-        );
+        // Get the specific plant by its index
+        const plant = this.player.garden[prediction.plantIndex];
         
-        matchingPlants.forEach(card => {
+        if (plant) {
           // Check if plant has protective conditions that would prevent the predicted death
           let isProtected = false;
-          if (prediction.deathInfo.cause === 'drought' && card.activeConditions['water']) {
+          if (prediction.deathInfo.cause === 'drought' && plant.activeConditions['water']) {
             isProtected = true;
-            console.log(`💧 ${card.name} survived the predicted drought due to water protection!`);
-          } else if (prediction.deathInfo.cause === 'frost' && card.activeConditions['sunlight']) {
+            console.log(`💧 ${plant.name} survived the predicted drought due to water protection!`);
+          } else if (prediction.deathInfo.cause === 'frost' && plant.activeConditions['sunlight']) {
             isProtected = true;
-            console.log(`☀️ ${card.name} survived the predicted frost due to shelter protection!`);
+            console.log(`☀️ ${plant.name} survived the predicted frost due to shelter protection!`);
           }
           
           if (!isProtected) {
-            card.state = 'dead';
-            console.log(`⚰️ LOCKED PREDICTION: ${card.name} died from ${prediction.deathInfo.cause} as foreseen by Green Tea.`);
+            plant.state = 'dead';
+            console.log(`⚰️ LOCKED PREDICTION: ${plant.name} died from ${prediction.deathInfo.cause} as foreseen by Green Tea.`);
           } else {
-            console.log(`🛡️ PROTECTION SUCCESSFUL: ${card.name} was saved from the predicted ${prediction.deathInfo.cause}!`);
+            console.log(`🛡️ PROTECTION SUCCESSFUL: ${plant.name} was saved from the predicted ${prediction.deathInfo.cause}!`);
           }
-        });
+        }
         
         // Mark prediction for removal
         plantsToRemove.push(plantKey);
