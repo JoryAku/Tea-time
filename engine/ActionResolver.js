@@ -126,6 +126,15 @@ module.exports = {
         }
         break;
 
+      case "future_simulation":
+        // Green Tea future simulation effect
+        const simTarget = actionDef.target;
+        if (simTarget.type === "plant_future") {
+          // This effect requires plant selection, defer to special handling in CLI
+          return "plant_selection_required";
+        }
+        break;
+
       case "protect_plant":
         // Apply protective condition to the plant
         const condition = actionDef.condition;

@@ -96,7 +96,42 @@ function promptAction() {
       }
     } else {
       const success = ActionResolver.resolve(action, game);
-      if (success) {
+      if (success === "plant_selection_required") {
+        // Handle Green Tea plant selection
+        const [actionName, zone, idx] = action.split(' ');
+        const teaCard = game.player.findCard(zone, parseInt(idx, 10));
+        
+        if (game.player.garden.length === 0) {
+          console.log('❌ No plants in garden to simulate!');
+          return promptAction();
+        }
+        
+        console.log('\n🔮 Select a plant to see its future:');
+        game.player.garden.forEach((plant, i) => {
+          console.log(`  ${i}: ${plant.name} [${plant.state}]`);
+        });
+        
+        rl.question('\nSelect plant index: ', (plantInput) => {
+          const plantIndex = parseInt(plantInput.trim(), 10);
+          if (isNaN(plantIndex) || plantIndex < 0 || plantIndex >= game.player.garden.length) {
+            console.log('❌ Invalid plant selection.');
+            return promptAction();
+          }
+          
+          const success = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
+          if (success) {
+            game.player.actionsLeft -= 1;
+            game.triggerWeather();
+          }
+          
+          if (game.player.actionsLeft <= 0) {
+            game.endSeasonProcessing();
+          }
+          
+          return promptAction();
+        });
+        return;
+      } else if (success) {
         // Action cost is handled inside ActionResolver now
         // after each action, trigger weather
         game.triggerWeather();
