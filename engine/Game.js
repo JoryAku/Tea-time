@@ -74,13 +74,13 @@ class Game {
   }
 
   initStartingDeck() {
-  // Start with only one tea_plant seedling in the garden
-  const startSeedling = this.createCard("tea_plant", "seedling");
-  this.player.garden.push(startSeedling);
-  const startGreenTea = this.createCard("tea_leaf_green");
-  this.player.kitchen.push(startGreenTea);
-  console.log("🌱 Starting garden with a tea plant seedling.");
-  console.log("🫖 Starting kitchen with a green tea leaf.");
+    // Start with only one tea_plant seedling in the garden
+    const startSeedling = this.createCard("tea_plant", "seedling");
+    this.player.garden.push(startSeedling);
+    const startGreenTea = this.createCard("tea_leaf_green");
+    this.player.kitchen.push(startGreenTea);
+    console.log("🌱 Starting garden with a tea plant seedling.");
+    console.log("🫖 Starting kitchen with a green tea leaf.");
   }
 
   // create a Card instance from an id in data/Cards.json
