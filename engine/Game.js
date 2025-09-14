@@ -54,6 +54,16 @@ class Game {
   applyWeather(event) {
     return this.engine.applyWeather(event);
   }
+
+  // Delegate Green Tea prediction method for easier access
+  simulatePlantFuture(plantCard, actionsToSimulate = 48) {
+    return this.engine.simulatePlantFuture(plantCard, actionsToSimulate);
+  }
+
+  // Delegate Green Tea consumption method
+  consumeGreenTeaWithPlantSelection(teaCard, plantIndex) {
+    return this.engine.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
+  }
 }
 
 module.exports = Game;
