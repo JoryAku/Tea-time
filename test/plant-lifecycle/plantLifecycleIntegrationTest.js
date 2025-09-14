@@ -3,12 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const CARDS_PATH = path.join(__dirname, '../data/Cards.json');
+const CARDS_PATH = path.join(__dirname, '../../data/Cards.json');
 const cardsData = JSON.parse(fs.readFileSync(CARDS_PATH, 'utf-8'));
 const teaPlant = cardsData.plants.find(p => p.id === 'tea_plant');
 
 const stateOrder = ['seed', 'seedling', 'mature', 'flowering', 'fruiting', 'seed'];
-const weatherData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/weather.json'), 'utf-8'));
+const weatherData = JSON.parse(fs.readFileSync(path.join(__dirname, '../../data/weather.json'), 'utf-8'));
 const seasons = ['spring', 'summer', 'autumn', 'winter'];
 
 function getTransitionActions(state) {
