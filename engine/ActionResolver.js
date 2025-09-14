@@ -109,6 +109,9 @@ module.exports = {
         const target = actionDef.target;
         if (target.type === "peek_weather") {
           game.peekWeather(target.value);
+        } else if (target.type === "plant_foresight") {
+          // Green Tea foresight - allow player to select a plant and see its future
+          return game.handlePlantForesight(target.value, card);
         } else if (target.type === "past_action") {
           // For the terminal prototype we will grant a free extra action now
           console.log("🔮 You consumed a tea that allows 1 past action (implemented as +1 action now).");
@@ -129,9 +132,13 @@ module.exports = {
       case "protect_plant":
         // Apply protective condition to the plant
         const condition = actionDef.condition;
-        const duration = actionDef.duration || 2; // Default to 2 actions like weather events
+        const duration = actionDef.duration || 6; // Default to 6 actions
         card.activeConditions[condition] = duration;
         console.log(`🛡️ Applied ${condition} protection to ${card.name} for ${duration} actions.`);
+        
+        // Track this protective action for timeline alteration
+        const actionType = condition === 'water' ? 'water' : 'shelter';
+        game.trackProtectiveAction(card, actionType);
         break;
 
       default:

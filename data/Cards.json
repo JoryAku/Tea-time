@@ -13,7 +13,7 @@
           ],
           "actions": {
             "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 }
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 }
           },
           "transitions": [
             { "to": "seedling", "actions": { "min": 1, "max": 2 } }
@@ -27,8 +27,8 @@
           ],
           "actions": {
             "clone": { "effect": "add_card", "target": "tea_plant", "state": "seedling", "location": "hand" },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
           },
           "transitions": [
             { "to": "mature", "actions": { "min": 36, "max": 36 } }
@@ -43,8 +43,8 @@
           ],
           "actions": {
             "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen", "removeOriginal": false },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
           },
           "transitions": [
             { "to": "flowering", "actions": { "min": 4, "max": 12 } }
@@ -59,8 +59,8 @@
             { "event": "disease", "outcome": "die" }
           ],
           "actions": {
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
           },
           "transitions": [
             { "to": "fruiting", "actions": { "min": 3, "max": 3 } }
@@ -76,8 +76,8 @@
           ],
           "actions": {
             "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 2 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 2 }
+            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
+            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
           },
           "transitions": [
             { "to": "seed", "actions": { "min": 3, "max": 3 } }
@@ -188,7 +188,7 @@
       "name": "Green Tea",
       "type": "Tea",
       "actions": {
-        "consume": { "effect": "apply_effect", "target": { "type": "peek_weather", "value": 1 } }
+        "consume": { "effect": "apply_effect", "target": { "type": "plant_foresight", "value": 48 } }
       }
     },
     {

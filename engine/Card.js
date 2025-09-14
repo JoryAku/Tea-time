@@ -2,6 +2,9 @@ class Card {
   constructor(definition, state = null) {
     if (!definition) throw new Error("Card requires a definition");
     this.definition = definition;
+    // Assign unique ID to each card for tracking
+    this.id = Card.generateId();
+    
     // choose a default state if none provided
     if (state) this.state = state;
     else if (definition.defaultState) this.state = definition.defaultState;
@@ -27,6 +30,11 @@ class Card {
     // Tea processing specific properties
     this.oxidationProgress = 0;
     this.oxidationActionsLeft = 0;
+  }
+
+  static generateId() {
+    if (!Card._idCounter) Card._idCounter = 0;
+    return ++Card._idCounter;
   }
 
   get name() {
