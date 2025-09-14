@@ -41,9 +41,6 @@ function simulateLifecycle() {
     : (Math.floor(Math.random() * (teaPlant.lifespan.max - teaPlant.lifespan.min + 1)) + teaPlant.lifespan.min);
 
   logStage(plantState, actions, years, plantAge);
-  let productiveSeasons = 0;
-  let reachedFruiting = false;
-  let fruitingStartSeason = null;
   let composted = false;
   let newSeedProduced = false;
   let deadStateEntered = false;
