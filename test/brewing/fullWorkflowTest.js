@@ -1,8 +1,8 @@
 // test/fullWorkflowTest.js
 // Test the complete workflow from mature plant to harvesting and processing tea
 
-const Game = require("../engine/Game");
-const ActionResolver = require("../engine/ActionResolver");
+const Game = require("../../engine/Game");
+const ActionResolver = require("../../engine/ActionResolver");
 
 function testFullWorkflow() {
   console.log("=== Testing Full Tea Workflow: Harvest → Process → Brew ===\n");

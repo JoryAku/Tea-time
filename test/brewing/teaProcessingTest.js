@@ -1,8 +1,7 @@
-// test/teaProcessingTest.js
 // Test the comprehensive tea processing system
 
-const Game = require("../engine/Game");
-const ActionResolver = require("../engine/ActionResolver");
+const Game = require("../../engine/Game");
+const ActionResolver = require("../../engine/ActionResolver");
 
 function testTeaProcessingPaths() {
   console.log("=== Testing Tea Processing Pathways ===\n");

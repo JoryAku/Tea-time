@@ -1,4 +1,3 @@
-// test/plantLifecycleIntegrationTest.js
 // Simulates the full lifecycle of a Camellia sinensis seed, including needs (season/resources) and lifespan, as in the main game engine.
 
 const fs = require('fs');

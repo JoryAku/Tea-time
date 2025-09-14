@@ -1,8 +1,7 @@
-// test/failureCasesTest.js
 // Test failure cases for tea processing
 
-const Game = require("../engine/Game");
-const ActionResolver = require("../engine/ActionResolver");
+const Game = require("../../engine/Game");
+const ActionResolver = require("../../engine/ActionResolver");
 
 function testFailureCases() {
   console.log("=== Testing Tea Processing Failure Cases ===\n");
