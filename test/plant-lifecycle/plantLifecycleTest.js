@@ -1,4 +1,3 @@
-// test/plantLifecycleTest.js
 // Simulates the lifecycle of a single Camellia sinensis seed in the garden.
 
 const STAGES = [

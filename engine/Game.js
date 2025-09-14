@@ -74,9 +74,13 @@ class Game {
   }
 
   initStartingDeck() {
-  // Start with only one tea_plant seedling in the garden
-  const c = this.createCard("tea_plant", "seedling");
-  this.player.garden.push(c);
+    // Start with only one tea_plant seedling in the garden
+    const startSeedling = this.createCard("tea_plant", "seedling");
+    this.player.garden.push(startSeedling);
+    const startGreenTea = this.createCard("tea_leaf_green");
+    this.player.kitchen.push(startGreenTea);
+    console.log("🌱 Starting garden with a tea plant seedling.");
+    console.log("🫖 Starting kitchen with a green tea leaf.");
   }
 
   // create a Card instance from an id in data/Cards.json
@@ -104,6 +108,10 @@ class Game {
     const event = this.pickWeatherEvent();
     console.log(`\n🌦 Weather event: ${event}`);
     this.applyWeather(event);
+    // Progress oxidation on tea leaves
+    this.progressOxidation();
+    // Check for tea processing failures
+    this.checkTeaProcessingFailures(event);
     // After weather, tick down all active conditions on all plants
     this.player.garden.forEach(card => card.tickActiveConditions && card.tickActiveConditions());
   }
@@ -287,6 +295,54 @@ class Game {
       }
     }
     console.log(`\n>>> ${this.currentSeason.toUpperCase()} begins.`);
+  }
+
+  // Progress oxidation on tea leaves in kitchen
+  progressOxidation() {
+    this.player.kitchen.forEach((card, idx) => {
+      if (card.definition.id === 'tea_leaf_oxidizing') {
+        // Check for overoxidation first (too many actions spent oxidizing)
+        if (card.oxidationProgress > 3) { // Overoxidation threshold
+          const deadCard = this.createCard('dead_leaves');
+          this.player.kitchen[idx] = deadCard;
+          console.log(`💀 ${card.name} overoxidized and became dead leaves.`);
+          return;
+        }
+        
+        if (card.oxidationActionsLeft > 0) {
+          card.oxidationActionsLeft--;
+          console.log(`🫖 ${card.name} oxidation continues... ${card.oxidationActionsLeft} actions remaining.`);
+          
+          if (card.oxidationActionsLeft === 0) {
+            console.log(`🫖 ${card.name} oxidation complete. Can now be dried or fixed.`);
+          }
+        }
+      }
+    });
+  }
+
+  // Check for tea processing failures based on weather
+  checkTeaProcessingFailures(event) {
+    this.player.kitchen.forEach((card, idx) => {
+      // Check vulnerabilities for tea leaves
+      if (card.definition.vulnerabilities) {
+        card.definition.vulnerabilities.forEach(vuln => {
+          if (vuln.event === event && vuln.outcome === 'dead') {
+            const deadCard = this.createCard('dead_leaves');
+            this.player.kitchen[idx] = deadCard;
+            console.log(`💀 ${card.name} rotted due to ${event} and became dead leaves.`);
+          }
+        });
+      }
+
+      // Check burn risk for fix action during heat events
+      if (event === 'heat' && card.definition.id === 'tea_leaf_raw') {
+        // Check if player has shelter - for simplicity, assume no shelter in kitchen
+        const deadCard = this.createCard('dead_leaves');
+        this.player.kitchen[idx] = deadCard;
+        console.log(`🔥 ${card.name} burned during heat event (no shelter in kitchen).`);
+      }
+    });
   }
 }
 

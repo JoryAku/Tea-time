@@ -1,15 +1,14 @@
-// test/plantLifecycleIntegrationTest.js
 // Simulates the full lifecycle of a Camellia sinensis seed, including needs (season/resources) and lifespan, as in the main game engine.
 
 const fs = require('fs');
 const path = require('path');
 
-const CARDS_PATH = path.join(__dirname, '../data/Cards.json');
+const CARDS_PATH = path.join(__dirname, '../../data/Cards.json');
 const cardsData = JSON.parse(fs.readFileSync(CARDS_PATH, 'utf-8'));
 const teaPlant = cardsData.plants.find(p => p.id === 'tea_plant');
 
 const stateOrder = ['seed', 'seedling', 'mature', 'flowering', 'fruiting', 'seed'];
-const weatherData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/weather.json'), 'utf-8'));
+const weatherData = JSON.parse(fs.readFileSync(path.join(__dirname, '../../data/weather.json'), 'utf-8'));
 const seasons = ['spring', 'summer', 'autumn', 'winter'];
 
 function getTransitionActions(state) {
@@ -42,9 +41,6 @@ function simulateLifecycle() {
     : (Math.floor(Math.random() * (teaPlant.lifespan.max - teaPlant.lifespan.min + 1)) + teaPlant.lifespan.min);
 
   logStage(plantState, actions, years, plantAge);
-  let productiveSeasons = 0;
-  let reachedFruiting = false;
-  let fruitingStartSeason = null;
   let composted = false;
   let newSeedProduced = false;
   let deadStateEntered = false;

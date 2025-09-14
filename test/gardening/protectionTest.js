@@ -1,8 +1,7 @@
-// test/protectionTest.js
 // Test that protective actions (water and shelter) protect plants from vulnerabilities
 
-const Game = require('../engine/Game');
-const ActionResolver = require('../engine/ActionResolver');
+const Game = require('../../engine/Game');
+const ActionResolver = require('../../engine/ActionResolver');
 
 function testProtectionActions() {
   console.log('=== Testing Protective Actions ===\n');
