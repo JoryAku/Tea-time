@@ -264,6 +264,16 @@ class TeaTimeEngine {
     // Store locked prediction for later enforcement
     if (!this.lockedPredictions) this.lockedPredictions = new Map();
     
+    // FIRST PASS: Determine if plant will survive or die and when
+    const survivalOutcome = this.determinePlantSurvivalOutcome(plantCard, actionsToSimulate);
+    
+    // Generate weather forecast that ensures the survival outcome
+    const weatherForecast = this.generateOutcomeDrivenWeatherForecast(
+      plantCard, 
+      actionsToSimulate, 
+      survivalOutcome
+    );
+    
     for (let action = 1; action <= actionsToSimulate; action++) {
       // Advance season when actions are used up
       if (seasonActionCounter <= 0) {
@@ -287,8 +297,8 @@ class TeaTimeEngine {
         }
       });
       
-      // Generate weather event for this action
-      const weatherEvent = this.weatherSystem.pickWeatherEvent(currentSimSeason);
+      // Use forecasted weather event instead of random
+      const weatherEvent = weatherForecast[action - 1];
       const conditions = this.weatherSystem.getEventConditions(currentSimSeason, weatherEvent);
       
       // Check if plant dies from this weather event
@@ -322,7 +332,8 @@ class TeaTimeEngine {
       deathInfo: deathInfo,
       finalState: simulatedPlant.state,
       finalAge: simulatedPlant.age,
-      predictionKey: plantKey
+      predictionKey: plantKey,
+      weatherForecast: weatherForecast // Add this for testing purposes
     };
   }
 
@@ -331,6 +342,161 @@ class TeaTimeEngine {
     const seasons = ['spring', 'summer', 'autumn', 'winter'];
     const currentIndex = seasons.indexOf(currentSeason);
     return seasons[(currentIndex + 1) % seasons.length];
+  }
+
+  // Determine whether a plant should survive or die during prediction
+  determinePlantSurvivalOutcome(plantCard, actionsToSimulate) {
+    // Use deterministic but varied logic to decide survival
+    // This ensures consistent outcomes for the same plant state
+    const plantStateHash = this.calculatePlantStateHash(plantCard);
+    const survivalRoll = (plantStateHash % 100);
+    
+    // Base survival chance on plant maturity and vulnerabilities
+    const stageDef = plantCard.definition.states[plantCard.state];
+    const vulnerabilityCount = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities.length : 0;
+    
+    // Calculate survival chance (more vulnerable plants have lower survival rates)
+    let survivalChance = 85; // Base 85% survival rate (increased from 75%)
+    survivalChance -= (vulnerabilityCount * 10); // -10% per vulnerability (reduced from 15%)
+    
+    // Adjust for plant age if it has lifespan
+    if (plantCard.lifespan) {
+      const currentAge = plantCard.age || 0;
+      const ageRatio = currentAge / plantCard.lifespan;
+      if (ageRatio > 0.8) {
+        survivalChance -= 20; // Reduced from 30%
+      }
+    }
+    
+    // Ensure survival chance is within reasonable bounds
+    survivalChance = Math.max(30, Math.min(90, survivalChance)); // Adjusted bounds
+    
+    const willSurvive = survivalRoll < survivalChance;
+    
+    return {
+      willSurvive: willSurvive,
+      deathAction: willSurvive ? null : this.calculateDeathAction(plantCard, actionsToSimulate, plantStateHash)
+    };
+  }
+
+  // Calculate a consistent hash for plant state
+  calculatePlantStateHash(plantCard) {
+    let hash = 0;
+    const stateString = `${plantCard.definition.id}_${plantCard.state}_${plantCard.age || 0}_${plantCard.stateProgress || 0}`;
+    for (let i = 0; i < stateString.length; i++) {
+      const char = stateString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  }
+
+  // Calculate when the plant should die (if it's destined to die)
+  calculateDeathAction(plantCard, actionsToSimulate, plantStateHash) {
+    // Choose a death action between 60% and 95% of the simulation time
+    const minDeathAction = Math.floor(actionsToSimulate * 0.6);
+    const maxDeathAction = Math.floor(actionsToSimulate * 0.95);
+    const deathRange = maxDeathAction - minDeathAction;
+    
+    return minDeathAction + (plantStateHash % deathRange);
+  }
+
+  // Generate weather forecast that ensures the desired survival outcome
+  generateOutcomeDrivenWeatherForecast(plantCard, actionsToSimulate, survivalOutcome) {
+    const forecast = [];
+    const stageDef = plantCard.definition.states[plantCard.state];
+    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
+    
+    // Get all possible vulnerable events for this plant
+    const vulnerableEvents = vulnerabilities.map(v => v.event);
+    
+    for (let action = 1; action <= actionsToSimulate; action++) {
+      // Determine season for this action
+      const season = this.getSeasonForAction(action);
+      const seasonWeather = this.weatherData[season];
+      
+      // Filter weather events based on survival outcome
+      let availableEvents;
+      
+      if (survivalOutcome.willSurvive) {
+        // ALIVE CASE: Exclude vulnerability-triggering events
+        availableEvents = seasonWeather.filter(weather => !vulnerableEvents.includes(weather.event));
+      } else {
+        // DEAD CASE: Include vulnerability event at the death action
+        if (action === survivalOutcome.deathAction) {
+          // At death action, choose a vulnerability event that exists in this season
+          const seasonVulnerableEvents = seasonWeather.filter(weather => vulnerableEvents.includes(weather.event));
+          if (seasonVulnerableEvents.length > 0) {
+            // Pick the first vulnerable event for this season
+            availableEvents = [seasonVulnerableEvents[0]];
+          } else {
+            // No vulnerable events in this season, use normal events (plant won't die from non-vulnerable events)
+            availableEvents = seasonWeather.filter(weather => !vulnerableEvents.includes(weather.event));
+          }
+        } else {
+          // Before death action, exclude vulnerability events (let plant live until the designated death)
+          availableEvents = seasonWeather.filter(weather => !vulnerableEvents.includes(weather.event));
+        }
+      }
+      
+      // If no events available (shouldn't happen), fall back to all season events
+      if (availableEvents.length === 0) {
+        availableEvents = seasonWeather;
+      }
+      
+      // Select event using weighted random from available events
+      const selectedEvent = this.selectWeatherFromAvailable(availableEvents);
+      forecast.push(selectedEvent);
+    }
+    
+    return forecast;
+  }
+
+  // Get season for a given action number
+  getSeasonForAction(actionNumber) {
+    const currentSeason = this.getCurrentSeason();
+    const actionsPerSeason = this.timeManager.getActionsPerSeason();
+    const currentSeasonActionsLeft = this.player.actionsLeft;
+    
+    // Calculate how many seasons ahead this action is
+    const actionsUntilNextSeason = currentSeasonActionsLeft;
+    
+    if (actionNumber <= actionsUntilNextSeason) {
+      return currentSeason;
+    }
+    
+    const actionsAfterCurrentSeason = actionNumber - actionsUntilNextSeason;
+    const seasonsAhead = Math.floor((actionsAfterCurrentSeason - 1) / actionsPerSeason) + 1;
+    
+    const seasons = ['spring', 'summer', 'autumn', 'winter'];
+    const currentIndex = seasons.indexOf(currentSeason);
+    const targetIndex = (currentIndex + seasonsAhead) % seasons.length;
+    
+    return seasons[targetIndex];
+  }
+
+  // Select weather event from available events using their probability weights
+  selectWeatherFromAvailable(availableEvents) {
+    if (availableEvents.length === 1) {
+      return availableEvents[0].event;
+    }
+    
+    // Calculate total weight for available events
+    const totalWeight = availableEvents.reduce((sum, event) => sum + event.pct, 0);
+    
+    // Normalize probabilities and select
+    const randomValue = Math.random() * totalWeight;
+    let accumulator = 0;
+    
+    for (const event of availableEvents) {
+      accumulator += event.pct;
+      if (randomValue <= accumulator) {
+        return event.event;
+      }
+    }
+    
+    // Fallback to last event
+    return availableEvents[availableEvents.length - 1].event;
   }
 
   // Helper to simulate plant progression at season end
