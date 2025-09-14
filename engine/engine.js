@@ -76,6 +76,8 @@ class TeaTimeEngine {
     this.applyWeather(event);
     this.progressOxidation();
     this.checkTeaProcessingFailures(event);
+    // Progress locked predictions from Green Tea
+    this.progressLockedPredictions();
     // After weather, tick down all active conditions on all plants
     this.player.garden.forEach(card => card.tickActiveConditions && card.tickActiveConditions());
   }
@@ -168,12 +170,305 @@ class TeaTimeEngine {
     return this.actionManager.plantSeedFromZone(this.player, zone, idx, this.createCard.bind(this));
   }
 
+  // Handle Green Tea consumption with plant selection
+  consumeGreenTeaWithPlantSelection(teaCard, plantIndex) {
+    const plant = this.player.garden[plantIndex];
+    if (!plant) {
+      console.log('❌ No plant at that garden index.');
+      return false;
+    }
+
+    console.log(`🔮 Drinking Green Tea to see the future of ${plant.name} [${plant.state}]...`);
+    
+    // Simulate 48 actions (4 years) into the future
+    const prediction = this.simulatePlantFuture(plant, 48);
+    
+    // Display the prediction
+    this.displayFuturePrediction(plant, prediction);
+    
+    // Remove the consumed Green Tea
+    this.player.removeCardFromCurrentLocation(teaCard);
+    
+    return true;
+  }
+
+  // Display the future prediction to the player
+  displayFuturePrediction(plant, prediction) {
+    console.log('\n🔮 === FUTURE VISION ===');
+    console.log(`Plant: ${plant.name} [${plant.state}]`);
+    console.log('Time simulated: 48 actions (4 years)');
+    
+    if (prediction.alive) {
+      console.log('✨ PREDICTION: This plant will SURVIVE the next 4 years!');
+      console.log(`   Final state: ${prediction.finalState}`);
+      if (prediction.finalAge > (plant.age || 0)) {
+        console.log(`   Age after 4 years: ${prediction.finalAge} years old`);
+      }
+    } else {
+      const death = prediction.deathInfo;
+      const actionInMonths = Math.ceil(death.action / 3); // 3 actions per season ≈ 1 month per action
+      const actionInSeasons = Math.ceil(death.action / 3);
+      
+      console.log('💀 PREDICTION: This plant will DIE!');
+      console.log(`   Time: Action ${death.action} (~${actionInMonths} months from now)`);
+      console.log(`   Season: ${death.season}`);
+      console.log(`   Cause: ${death.cause}`);
+      console.log(`   Detail: ${death.description}`);
+      console.log('\n💡 PROTECTION ADVICE:');
+      
+      if (death.cause === 'drought') {
+        console.log('   → Use WATER action to protect against drought');
+        console.log('   → Water protection lasts 6 actions (6 months)');
+      } else if (death.cause === 'frost') {
+        console.log('   → Use SHELTER action to protect against frost');
+        console.log('   → Shelter protection lasts 6 actions (6 months)');
+      } else {
+        console.log(`   → No known protection against ${death.cause}`);
+      }
+    }
+    
+    console.log('\n⚠️  WARNING: This prediction is now LOCKED.');
+    console.log('   If you take no protective action, this outcome WILL occur!');
+    console.log('========================\n');
+  }
+
   // Small helper to show a peek (for Green Tea)
   peekWeather(n = 1) {
     console.log("🔎 Peeking at the next weather event(s):");
     for (let i = 0; i < n; i++) {
       console.log("  -", this.weatherSystem.pickWeatherEvent(this.getCurrentSeason()));
     }
+  }
+
+  // Future simulation for Green Tea effect (simulates 48 actions = 4 years)
+  simulatePlantFuture(plantCard, actionsToSimulate = 48) {
+    // Create a deep copy of the plant for simulation
+    const Card = require('./Card');
+    const simulatedPlant = new Card(plantCard.definition, plantCard.state);
+    
+    // Copy current state
+    simulatedPlant.stateProgress = plantCard.stateProgress || 0;
+    simulatedPlant.age = plantCard.age || 0;
+    simulatedPlant.lifespan = plantCard.lifespan;
+    simulatedPlant._seasonCounter = plantCard._seasonCounter || 0;
+    simulatedPlant._transitionThreshold = plantCard._transitionThreshold;
+    
+    // Track active protections during simulation
+    const simulatedProtections = { ...plantCard.activeConditions };
+    
+    // Track simulation state
+    let currentSimSeason = this.getCurrentSeason();
+    let seasonActionCounter = this.player.actionsLeft;
+    let deathInfo = null;
+    
+    // Store locked prediction for later enforcement
+    if (!this.lockedPredictions) this.lockedPredictions = new Map();
+    
+    for (let action = 1; action <= actionsToSimulate; action++) {
+      // Advance season when actions are used up
+      if (seasonActionCounter <= 0) {
+        currentSimSeason = this.getNextSeason(currentSimSeason);
+        seasonActionCounter = this.timeManager.getActionsPerSeason();
+        
+        // Reset resource tracking for new season
+        simulatedPlant.resetSeasonResources();
+        
+        // Process plant progression at season end
+        this.simulateSeasonEndProgression(simulatedPlant, currentSimSeason);
+      }
+      
+      seasonActionCounter--;
+      
+      // Tick down protection conditions
+      Object.keys(simulatedProtections).forEach(condition => {
+        simulatedProtections[condition]--;
+        if (simulatedProtections[condition] <= 0) {
+          delete simulatedProtections[condition];
+        }
+      });
+      
+      // Generate weather event for this action
+      const weatherEvent = this.weatherSystem.pickWeatherEvent(currentSimSeason);
+      const conditions = this.weatherSystem.getEventConditions(currentSimSeason, weatherEvent);
+      
+      // Check if plant dies from this weather event
+      const vulnerability = this.checkPlantVulnerability(simulatedPlant, weatherEvent, simulatedProtections);
+      if (vulnerability.dies) {
+        deathInfo = {
+          action: action,
+          season: currentSimSeason,
+          cause: weatherEvent,
+          description: vulnerability.description
+        };
+        break;
+      }
+      
+      // Add resource fulfillment
+      const stageDef = simulatedPlant.definition.states[simulatedPlant.state];
+      if (stageDef && stageDef.needs && stageDef.needs.resources) {
+        conditions.forEach(condition => {
+          if (stageDef.needs.resources.includes(condition) || simulatedProtections[condition]) {
+            simulatedPlant.resourcesThisSeason.add(condition);
+          }
+        });
+      }
+    }
+    
+    // Store the locked prediction for this plant
+    const plantKey = this.generatePlantKey(plantCard);
+    this.lockedPredictions.set(plantKey, {
+      deathInfo: deathInfo,
+      actionsSimulated: actionsToSimulate,
+      currentAction: 0
+    });
+    
+    return {
+      alive: !deathInfo,
+      deathInfo: deathInfo,
+      finalState: simulatedPlant.state,
+      finalAge: simulatedPlant.age
+    };
+  }
+
+  // Helper method to get next season in cycle
+  getNextSeason(currentSeason) {
+    const seasons = ['spring', 'summer', 'autumn', 'winter'];
+    const currentIndex = seasons.indexOf(currentSeason);
+    return seasons[(currentIndex + 1) % seasons.length];
+  }
+
+  // Helper to simulate plant progression at season end
+  simulateSeasonEndProgression(simulatedPlant, currentSeason) {
+    // Age tracking: increment age at the end of winter (1 year = 4 seasons)
+    if (!simulatedPlant._seasonCounter) simulatedPlant._seasonCounter = 0;
+    simulatedPlant._seasonCounter++;
+    if (simulatedPlant._seasonCounter >= 4) {
+      simulatedPlant._seasonCounter = 0;
+      simulatedPlant.age = (simulatedPlant.age || 0) + 1;
+      // Check lifespan
+      if (simulatedPlant.lifespan && simulatedPlant.age >= simulatedPlant.lifespan && simulatedPlant.state !== 'dead') {
+        simulatedPlant.state = 'dead';
+        simulatedPlant.resetStateProgress && simulatedPlant.resetStateProgress();
+        return;
+      }
+    }
+
+    // Normal progression logic (simplified for simulation)
+    const stageDef = simulatedPlant.definition.states[simulatedPlant.state];
+    if (!stageDef) return;
+
+    const needs = stageDef.needs || {};
+    const seasonsAllowed = needs.season || [];
+    
+    if (seasonsAllowed.includes(currentSeason)) {
+      const requiredResources = needs.resources || [];
+      const haveAll = requiredResources.every((r) => simulatedPlant.resourcesThisSeason.has(r));
+      if (haveAll) {
+        simulatedPlant.stateProgress = (simulatedPlant.stateProgress || 0) + 1;
+        
+        const transitions = stageDef.transitions || [];
+        if (transitions.length > 0) {
+          const t = transitions[0];
+          const min = t.actions.min;
+          const max = t.actions.max;
+          
+          if (simulatedPlant._transitionThreshold === undefined) {
+            simulatedPlant._transitionThreshold = (min === max) ? min : (Math.floor(Math.random() * (max - min + 1)) + min);
+          }
+          
+          if (simulatedPlant.stateProgress >= simulatedPlant._transitionThreshold) {
+            simulatedPlant.state = t.to;
+            simulatedPlant.resetStateProgress && simulatedPlant.resetStateProgress();
+            delete simulatedPlant._transitionThreshold;
+          }
+        }
+      }
+    }
+  }
+
+  // Check if plant would die from weather event (considering protections)
+  checkPlantVulnerability(plant, weatherEvent, protections) {
+    const stageDef = plant.definition.states[plant.state];
+    if (!stageDef || !stageDef.vulnerabilities) {
+      return { dies: false };
+    }
+
+    for (const vuln of stageDef.vulnerabilities) {
+      if (vuln.event === weatherEvent) {
+        // Check protections
+        if (weatherEvent === 'drought' && protections['water']) {
+          return { dies: false, isProtected: true };
+        }
+        if (weatherEvent === 'frost' && protections['sunlight']) {
+          return { dies: false, isProtected: true };
+        }
+        
+        return { 
+          dies: true, 
+          description: `${plant.name} would die from ${weatherEvent} vulnerability in ${plant.state} stage`
+        };
+      }
+    }
+    
+    return { dies: false };
+  }
+
+  // Generate unique key for plant tracking
+  generatePlantKey(plant) {
+    return `${plant.definition.id}_${plant.state}_${Date.now()}_${Math.random()}`;
+  }
+
+  // Check and enforce locked predictions
+  checkLockedPrediction(plantCard) {
+    if (!this.lockedPredictions) return null;
+    
+    const plantKey = this.generatePlantKey(plantCard);
+    return this.lockedPredictions.get(plantKey);
+  }
+
+  // Progress locked predictions and enforce death when predicted
+  progressLockedPredictions() {
+    if (!this.lockedPredictions) return;
+    
+    const plantsToRemove = [];
+    
+    this.lockedPredictions.forEach((prediction, plantKey) => {
+      prediction.currentAction++;
+      
+      // If we've reached the predicted death action, check if plant is still vulnerable
+      if (prediction.deathInfo && prediction.currentAction >= prediction.deathInfo.action) {
+        // Check if any protections would save the plant now
+        const matchingPlants = this.player.garden.filter(card => 
+          card.definition.id === 'tea_plant' && 
+          prediction.deathInfo
+        );
+        
+        matchingPlants.forEach(card => {
+          // Check if plant has protective conditions that would prevent the predicted death
+          let isProtected = false;
+          if (prediction.deathInfo.cause === 'drought' && card.activeConditions['water']) {
+            isProtected = true;
+            console.log(`💧 ${card.name} survived the predicted drought due to water protection!`);
+          } else if (prediction.deathInfo.cause === 'frost' && card.activeConditions['sunlight']) {
+            isProtected = true;
+            console.log(`☀️ ${card.name} survived the predicted frost due to shelter protection!`);
+          }
+          
+          if (!isProtected) {
+            card.state = 'dead';
+            console.log(`⚰️ LOCKED PREDICTION: ${card.name} died from ${prediction.deathInfo.cause} as foreseen by Green Tea.`);
+          } else {
+            console.log(`🛡️ PROTECTION SUCCESSFUL: ${card.name} was saved from the predicted ${prediction.deathInfo.cause}!`);
+          }
+        });
+        
+        // Mark prediction for removal
+        plantsToRemove.push(plantKey);
+      }
+    });
+    
+    // Remove completed predictions
+    plantsToRemove.forEach(key => this.lockedPredictions.delete(key));
   }
 }
 
