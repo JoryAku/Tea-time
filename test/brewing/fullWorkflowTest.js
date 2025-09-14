@@ -1,4 +1,3 @@
-// test/fullWorkflowTest.js
 // Test the complete workflow from mature plant to harvesting and processing tea
 
 const Game = require("../../engine/Game");

@@ -1,4 +1,3 @@
-// engine/actions/ActionManager.js
 // Handles player actions (water, shelter, harvest, etc.)
 
 class ActionManager {

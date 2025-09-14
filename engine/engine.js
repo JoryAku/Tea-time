@@ -1,4 +1,3 @@
-// engine/engine.js
 // Main engine orchestrator that coordinates all subsystems
 
 const TimeManager = require('./time/TimeManager');

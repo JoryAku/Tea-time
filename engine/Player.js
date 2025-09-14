@@ -1,4 +1,3 @@
-// engine/Player.js
 class Player {
   constructor() {
     this.hand = [];     // cards in hand

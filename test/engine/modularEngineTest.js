@@ -1,4 +1,3 @@
-// test/engine/modularEngineTest.js
 // Test to validate the new modular engine structure
 
 const TeaTimeEngine = require('../../engine/engine');
