@@ -157,6 +157,15 @@ module.exports = {
         }
         break;
 
+      case "timeline_replacement":
+        // Black Tea timeline replacement effect
+        const timelineTarget = actionDef.target;
+        if (timelineTarget.type === "plant_timeline") {
+          // This effect requires plant selection, defer to special handling in CLI
+          return "plant_selection_required";
+        }
+        break;
+
       case "protect_plant":
         // Apply protective condition to the plant
         const condition = actionDef.condition;

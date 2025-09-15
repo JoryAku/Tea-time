@@ -204,7 +204,7 @@
       "name": "Black Tea",
       "type": "Tea",
       "actions": {
-        "consume": { "effect": "apply_effect", "target": { "type": "future_action", "value": 1 } }
+        "consume": { "effect": "timeline_replacement", "target": { "type": "plant_timeline", "value": 48 } }
       }
     }
   ]
