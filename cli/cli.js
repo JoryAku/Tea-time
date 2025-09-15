@@ -157,8 +157,71 @@ function promptAction() {
               promptIntervention();
             }
           } else if (isOolongTea) {
-            consumptionSuccess = game.consumeOolongTeaWithPlantSelection(teaCard, plantIndex);
-            // Oolong Tea doesn't offer intervention options since it's about harvest, not prediction
+            const consumptionResult = game.consumeOolongTeaWithPlantSelection(teaCard, plantIndex);
+            
+            if (consumptionResult.success && consumptionResult.requiresSelection) {
+              // Handle harvest selection
+              const opportunities = consumptionResult.harvestOpportunities;
+              
+              if (opportunities.length === 0) {
+                console.log('❌ No harvest opportunities available.');
+                return promptAction();
+              }
+              
+              console.log('\n🎯 === SELECT HARVEST TO PULL INTO PRESENT ===');
+              console.log('Choose which harvest opportunity to take:');
+              
+              opportunities.forEach((opportunity, index) => {
+                const yearsFromNow = Math.ceil(opportunity.action / 12);
+                console.log(`  ${index}: Action ${opportunity.action} (Year ${yearsFromNow}, ${opportunity.season}) - Weather: ${opportunity.weather}`);
+              });
+              
+              rl.question('\nSelect harvest index (or "cancel" to abort): ', (harvestInput) => {
+                const trimmedInput = harvestInput.trim().toLowerCase();
+                
+                if (trimmedInput === 'cancel') {
+                  console.log('🚫 Oolong Tea consumption cancelled.');
+                  return promptAction();
+                }
+                
+                const harvestIndex = parseInt(trimmedInput, 10);
+                if (isNaN(harvestIndex) || harvestIndex < 0 || harvestIndex >= opportunities.length) {
+                  console.log('❌ Invalid harvest selection.');
+                  return promptAction();
+                }
+                
+                // Execute the selected harvest
+                const finalResult = game.consumeOolongTeaWithPlantSelection(
+                  consumptionResult.teaCard, 
+                  consumptionResult.plantIndex, 
+                  harvestIndex,
+                  {
+                    success: true,
+                    harvestOpportunities: consumptionResult.harvestOpportunities,
+                    deathInfo: consumptionResult.deathInfo,
+                    timeline: consumptionResult.timeline
+                  }
+                );
+                
+                if (finalResult.success) {
+                  console.log('✅ Harvest successfully pulled from the future!');
+                  consumptionSuccess = true;
+                  game.player.actionsLeft -= 1;
+                  game.triggerWeather();
+                } else {
+                  console.log(`❌ Harvest execution failed: ${finalResult.message}`);
+                }
+                
+                if (game.player.actionsLeft <= 0) {
+                  game.endSeasonProcessing();
+                }
+                
+                return promptAction();
+              });
+              return;
+            } else {
+              consumptionSuccess = consumptionResult.success;
+            }
           } else {
             // Fallback for other tea types
             consumptionSuccess = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);

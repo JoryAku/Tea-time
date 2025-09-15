@@ -814,13 +814,14 @@ class TeaTimeEngine {
   // === Oolong Tea Future Harvest System ===
 
   /**
-   * Simulate future harvest for Oolong Tea effect
+   * Simulate future harvest timeline for Oolong Tea effect (4-year view)
    * @param {Object} plantCard - Plant to simulate future harvest for
-   * @returns {Object} Harvest simulation result
+   * @returns {Object} Harvest simulation result with timeline opportunities
    */
-  simulateFutureHarvest(plantCard) {
-    console.log('\n🫖 === OOLONG TEA: FUTURE HARVEST SIMULATION ===');
-    console.log(`Simulating future harvest timeline for: ${plantCard.name} [${plantCard.state}]`);
+  simulateFutureHarvestTimeline(plantCard) {
+    console.log('\n🫖 === OOLONG TEA: 4-YEAR HARVEST TIMELINE ===');
+    console.log(`Simulating 4-year harvest timeline for: ${plantCard.name} [${plantCard.state}]`);
+    console.log('Each season and plant state will be shown, highlighting valid harvest opportunities.');
     
     // Check if plant is already harvestable
     if (plantCard.state === 'mature' && plantCard.harvestReady) {
@@ -842,11 +843,11 @@ class TeaTimeEngine {
     const deathPredictions = timeline.getDeathPredictions();
     const plantDeath = deathPredictions.find(death => death.plantId === plantId);
     
-    // Find the next harvest opportunity
-    const harvestOpportunity = this._findNextHarvestOpportunity(plantCard, timeline, plantId);
+    // Find ALL harvest opportunities in the timeline
+    const harvestOpportunities = this._findAllHarvestOpportunities(plantCard, timeline, plantId, plantDeath);
     
-    if (!harvestOpportunity) {
-      console.log('💀 HARVEST FAILED: No future harvest opportunity found.');
+    if (harvestOpportunities.length === 0) {
+      console.log('💀 NO HARVEST OPPORTUNITIES: No future harvests found in 4-year timeline.');
       if (plantDeath) {
         console.log(`   Reason: Plant will die on action ${plantDeath.deathAction} from ${plantDeath.cause}`);
         console.log(`   Death occurs in ${plantDeath.season} before reaching harvestable state`);
@@ -856,77 +857,242 @@ class TeaTimeEngine {
       }
       return { 
         success: false, 
-        message: 'No harvest opportunity found',
-        deathInfo: plantDeath 
-      };
-    }
-    
-    // Check if plant survives until harvest
-    if (plantDeath && plantDeath.deathAction <= harvestOpportunity.action) {
-      console.log('💀 HARVEST FAILED: Plant dies before harvest opportunity.');
-      console.log(`   Plant death: Action ${plantDeath.deathAction} (${plantDeath.season}) from ${plantDeath.cause}`);
-      console.log(`   Harvest would be: Action ${harvestOpportunity.action} (${harvestOpportunity.season})`);
-      this._displayHarvestProtectionAdvice(plantDeath);
-      return { 
-        success: false, 
-        message: 'Plant dies before harvest',
+        message: 'No harvest opportunities found',
         deathInfo: plantDeath,
-        harvestInfo: harvestOpportunity 
+        harvestOpportunities: []
       };
     }
     
-    // SUCCESS: Plant will survive until harvest
-    console.log('✨ HARVEST SUCCESS: Future harvest possible!');
-    console.log(`   Harvest opportunity: Action ${harvestOpportunity.action} (${harvestOpportunity.season})`);
-    console.log(`   Plant state at harvest: ${harvestOpportunity.plantState}`);
+    // Display the 4-year timeline with harvest opportunities
+    this._displayFourYearHarvestTimeline(timeline, harvestOpportunities, plantDeath);
     
-    // Calculate time until harvest
-    const yearsUntilHarvest = Math.ceil(harvestOpportunity.action / 12);
-    const seasonsUntilHarvest = Math.ceil(harvestOpportunity.action / 3);
-    console.log(`   Time until harvest: ~${yearsUntilHarvest} year(s), ${seasonsUntilHarvest} season(s)`);
+    return { 
+      success: true, 
+      message: 'Harvest timeline generated',
+      harvestOpportunities: harvestOpportunities,
+      deathInfo: plantDeath,
+      timeline: timeline
+    };
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @param {Object} plantCard - Plant to simulate future harvest for
+   * @returns {Object} Harvest simulation result
+   */
+  simulateFutureHarvest(plantCard) {
+    return this.simulateFutureHarvestTimeline(plantCard);
+  }
+
+  /**
+   * Find ALL harvest opportunities in the timeline (not just the first one)
+   * Excludes harvests that have already been taken from the timeline
+   * @private
+   */
+  _findAllHarvestOpportunities(plantCard, timeline, plantId, plantDeath) {
+    const opportunities = [];
+    const maxAction = plantDeath ? plantDeath.deathAction : timeline.events.length;
     
-    // Show timeline summary leading to harvest
-    this._displayHarvestTimelineSummary(timeline, harvestOpportunity.action);
+    // Look through timeline to find ALL times when plant is mature and in spring
+    for (let action = 1; action <= maxAction; action++) {
+      const plantState = timeline.getPlantStateAtAction(plantId, action);
+      const weatherEvent = timeline.getWeatherAtAction(action);
+      
+      if (plantState && plantState.state === 'mature' && weatherEvent && weatherEvent.season === 'spring') {
+        // Skip if this harvest has already been taken
+        if (!this._isHarvestTaken(plantCard, action)) {
+          opportunities.push({
+            action: action,
+            season: weatherEvent.season,
+            plantState: plantState.state,
+            weather: weatherEvent.weather,
+            year: Math.ceil(action / 12),
+            seasonInYear: this._getSeasonInYear(action)
+          });
+        }
+      }
+    }
     
-    console.log('\n🍃 PULLING FUTURE HARVEST INTO PRESENT...');
+    return opportunities;
+  }
+
+  /**
+   * Display the complete 4-year harvest timeline with opportunities
+   * @private
+   */
+  _displayFourYearHarvestTimeline(timeline, harvestOpportunities, plantDeath) {
+    console.log('\n🔮 === 4-YEAR HARVEST TIMELINE ===');
+    console.log('Showing each season and plant state, highlighting harvest opportunities.');
+    console.log('✨ Harvest opportunities only occur when plant is MATURE and season is SPRING.');
+    
+    if (plantDeath) {
+      console.log(`💀 WARNING: Plant will die on action ${plantDeath.deathAction} (${plantDeath.season}) from ${plantDeath.cause}`);
+    }
+    
+    console.log(`\n📅 AVAILABLE HARVEST OPPORTUNITIES (${harvestOpportunities.length} found):`);
+    
+    if (harvestOpportunities.length > 0) {
+      harvestOpportunities.forEach((opportunity, index) => {
+        const yearsFromNow = Math.ceil(opportunity.action / 12);
+        const seasonsFromNow = Math.ceil(opportunity.action / 3);
+        console.log(`   ${index}. Action ${opportunity.action} (Year ${yearsFromNow}, ${opportunity.season}) - Weather: ${opportunity.weather}`);
+      });
+      
+      console.log('\n🌿 Each harvest yields one Tea Leaf (Raw)');
+      console.log('🔮 Selecting a harvest will pull it into the present and mark it as taken in the timeline.');
+      console.log('🔄 Future Oolong Tea uses will show updated timeline with taken harvests excluded.');
+    } else {
+      console.log('   None available (either plant dies early or all harvests already taken).');
+    }
+    
+    // Display seasonal timeline summary
+    this._displayFullSeasonalTimeline(timeline, harvestOpportunities, plantDeath);
+    
+    console.log('\n⚠️  This timeline is LOCKED and will occur unless you intervene with protective actions!');
+    console.log('=========================================\n');
+  }
+
+  /**
+   * Display the full seasonal timeline with harvest markers
+   * @private
+   */
+  _displayFullSeasonalTimeline(timeline, harvestOpportunities, plantDeath) {
+    console.log('\n📅 DETAILED TIMELINE:');
+    let eventIndex = 0;
+    const currentSeason = this.getCurrentSeason();
+    const actionsPerSeason = this.timeManager.getActionsPerSeason();
+    let remainingActionsInCurrentSeason = this.player.actionsLeft;
+    
+    // Create quick lookup for harvest actions
+    const harvestActions = new Set(harvestOpportunities.map(h => h.action));
+    const deathAction = plantDeath ? plantDeath.deathAction : null;
+    
+    for (let year = 1; year <= 4 && eventIndex < timeline.events.length; year++) {
+      console.log(`\n   Year ${year}:`);
+      
+      const seasonOrder = ['spring', 'summer', 'autumn', 'winter'];
+      let startSeasonIndex = year === 1 ? seasonOrder.indexOf(currentSeason) : 0;
+      
+      for (let i = 0; i < 4 && eventIndex < timeline.events.length; i++) {
+        const seasonIndex = (startSeasonIndex + i) % 4;
+        const season = seasonOrder[seasonIndex];
+        const seasonEvents = [];
+        let hasHarvestEvent = false;
+        let hasDeathEvent = false;
+        
+        const actionsThisSeason = (year === 1 && i === 0) ? remainingActionsInCurrentSeason : actionsPerSeason;
+        
+        for (let j = 0; j < actionsThisSeason && eventIndex < timeline.events.length; j++) {
+          const currentAction = eventIndex + 1;
+          const event = timeline.events[eventIndex];
+          
+          if (event) {
+            seasonEvents.push(event.weather);
+            
+            if (harvestActions.has(currentAction)) {
+              hasHarvestEvent = true;
+            }
+            
+            if (deathAction === currentAction) {
+              hasDeathEvent = true;
+            }
+          }
+          eventIndex++;
+        }
+        
+        if (seasonEvents.length > 0) {
+          let seasonLine = `     ${season}: ${seasonEvents.join(', ')}`;
+          if (hasHarvestEvent) {
+            seasonLine += ' 🌿 HARVEST AVAILABLE!';
+          }
+          if (hasDeathEvent) {
+            seasonLine += ' ⚠️  DEATH EVENT!';
+          }
+          console.log(seasonLine);
+        }
+      }
+    }
+  }
+
+  /**
+   * Helper to get season name within a year for a given action
+   * @private
+   */
+  _getSeasonInYear(action) {
+    const currentSeason = this.getCurrentSeason();
+    const actionsPerSeason = this.timeManager.getActionsPerSeason();
+    const currentSeasonActionsLeft = this.player.actionsLeft;
+    
+    // Calculate which season this action falls into
+    const actionsUntilNextSeason = currentSeasonActionsLeft;
+    
+    if (action <= actionsUntilNextSeason) {
+      return currentSeason;
+    }
+    
+    const actionsAfterCurrentSeason = action - actionsUntilNextSeason;
+    const seasonsAhead = Math.floor((actionsAfterCurrentSeason - 1) / actionsPerSeason) + 1;
+    
+    const seasons = ['spring', 'summer', 'autumn', 'winter'];
+    const currentIndex = seasons.indexOf(currentSeason);
+    const targetIndex = (currentIndex + seasonsAhead) % seasons.length;
+    
+    return seasons[targetIndex];
+  }
+
+  /**
+   * Execute a selected harvest from the future timeline
+   * @param {Object} plantCard - Plant being harvested from
+   * @param {Object} selectedOpportunity - The harvest opportunity selected by player
+   * @returns {Object} Result of the harvest execution
+   */
+  executeSelectedHarvest(plantCard, selectedOpportunity) {
+    console.log('\n🍃 === EXECUTING SELECTED HARVEST ===');
+    console.log(`Pulling harvest from Action ${selectedOpportunity.action} (Year ${selectedOpportunity.year}, ${selectedOpportunity.season})`);
+    console.log(`Weather during harvest: ${selectedOpportunity.weather}`);
     
     // Add harvested leaves to kitchen
     const harvestedLeaves = this.createCard("tea_leaf_raw");
     this.player.addCardToLocation(harvestedLeaves, "kitchen");
     
     console.log('🌿 Added Tea Leaf (Raw) to kitchen from future harvest!');
-    console.log('🔮 The timeline remains unchanged - only the harvest was pulled forward.');
+    
+    // Mark this harvest as taken in the plant's timeline
+    this._markHarvestAsTaken(plantCard, selectedOpportunity);
+    
+    console.log('🔮 The plant\'s timeline has been updated: this harvest is now marked as taken.');
+    console.log('🔄 Future timeline views will reflect this change.');
     console.log('===============================================\n');
     
     return { 
       success: true, 
-      message: 'Future harvest successful',
-      harvestInfo: harvestOpportunity,
-      deathInfo: plantDeath 
+      message: 'Selected harvest executed successfully',
+      harvestInfo: selectedOpportunity
     };
   }
 
   /**
-   * Find the next opportunity when the plant would be ready for harvest
+   * Mark a harvest as taken in the plant's timeline for future consistency
    * @private
    */
-  _findNextHarvestOpportunity(plantCard, timeline, plantId) {
-    // Look through timeline to find when plant becomes mature and harvestReady
-    for (let action = 1; action <= timeline.events.length; action++) {
-      const plantState = timeline.getPlantStateAtAction(plantId, action);
-      const weatherEvent = timeline.getWeatherAtAction(action);
-      
-      if (plantState && plantState.state === 'mature' && weatherEvent && weatherEvent.season === 'spring') {
-        return {
-          action: action,
-          season: weatherEvent.season,
-          plantState: plantState.state,
-          weather: weatherEvent.weather
-        };
-      }
+  _markHarvestAsTaken(plantCard, harvestOpportunity) {
+    // Initialize taken harvests tracking if not exists
+    if (!plantCard.takenHarvests) {
+      plantCard.takenHarvests = new Set();
     }
     
-    return null;
+    // Mark this specific action as harvested
+    plantCard.takenHarvests.add(harvestOpportunity.action);
+    
+    console.log(`📝 Marked Action ${harvestOpportunity.action} as harvested for ${plantCard.name}`);
+  }
+
+  /**
+   * Check if a harvest has been taken from the timeline
+   * @private
+   */
+  _isHarvestTaken(plantCard, action) {
+    return plantCard.takenHarvests && plantCard.takenHarvests.has(action);
   }
 
   /**
@@ -1005,32 +1171,84 @@ class TeaTimeEngine {
   }
 
   /**
-   * Consume Oolong Tea with plant selection for future harvest
+   * Consume Oolong Tea with plant selection for future harvest timeline
    * @param {Object} teaCard - The Oolong Tea card being consumed
    * @param {number} plantIndex - Index of plant in garden to harvest from future
-   * @returns {boolean} Whether consumption was successful
+   * @param {number} harvestChoice - Optional: which harvest opportunity to select (0-based index)
+   * @param {Object} cachedTimeline - Optional: previously generated timeline to avoid regeneration
+   * @returns {Object} Result of consumption with harvest opportunities
    */
-  consumeOolongTeaWithPlantSelection(teaCard, plantIndex) {
+  consumeOolongTeaWithPlantSelection(teaCard, plantIndex, harvestChoice = null, cachedTimeline = null) {
     const selectedPlant = this.player.garden[plantIndex];
     if (!selectedPlant) {
       console.log('❌ No plant found at that garden index.');
-      return false;
+      return { success: false, message: 'No plant found' };
     }
 
-    console.log(`🫖 Consuming ${teaCard.name} to harvest future leaves from ${selectedPlant.name}...`);
+    console.log(`🫖 Consuming ${teaCard.name} to view future harvest timeline from ${selectedPlant.name}...`);
     
-    // Simulate future harvest
-    const harvestResult = this.simulateFutureHarvest(selectedPlant);
+    // Use cached timeline if provided, otherwise generate new one
+    let timelineResult;
+    if (cachedTimeline && cachedTimeline.success) {
+      timelineResult = cachedTimeline;
+    } else {
+      // Generate the 4-year harvest timeline
+      timelineResult = this.simulateFutureHarvestTimeline(selectedPlant);
+      
+      if (!timelineResult.success) {
+        console.log(`❌ Future harvest timeline failed: ${timelineResult.message}`);
+        // Don't consume the tea if timeline generation failed
+        return timelineResult;
+      }
+    }
+    
+    // If no harvest choice specified, return the timeline for selection
+    if (harvestChoice === null) {
+      console.log('\n🎯 Select which harvest to pull into the present:');
+      console.log('   (This choice will be handled by the interface)');
+      return {
+        success: true,
+        requiresSelection: true,
+        message: 'Harvest selection required',
+        harvestOpportunities: timelineResult.harvestOpportunities,
+        deathInfo: timelineResult.deathInfo,
+        timeline: timelineResult.timeline,
+        teaCard: teaCard,
+        plantIndex: plantIndex
+      };
+    }
+    
+    // If harvest choice is specified, execute it
+    const opportunities = timelineResult.harvestOpportunities;
+    if (harvestChoice < 0 || harvestChoice >= opportunities.length) {
+      console.log('❌ Invalid harvest selection.');
+      return { success: false, message: 'Invalid harvest selection' };
+    }
+    
+    const selectedOpportunity = opportunities[harvestChoice];
+    
+    // Check if this harvest has already been taken
+    if (this._isHarvestTaken(selectedPlant, selectedOpportunity.action)) {
+      console.log('❌ This harvest has already been taken from the timeline!');
+      return { success: false, message: 'Harvest already taken' };
+    }
+    
+    // Execute the selected harvest
+    const harvestResult = this.executeSelectedHarvest(selectedPlant, selectedOpportunity);
     
     if (harvestResult.success) {
       // Remove the consumed tea
       this.player.removeCardFromCurrentLocation(teaCard);
       console.log(`🫖 ${teaCard.name} consumed successfully.`);
-      return true;
+      
+      return {
+        success: true,
+        message: 'Future harvest successful',
+        harvestInfo: selectedOpportunity,
+        deathInfo: timelineResult.deathInfo
+      };
     } else {
-      console.log(`❌ Future harvest failed: ${harvestResult.message}`);
-      // Don't consume the tea if harvest failed
-      return false;
+      return harvestResult;
     }
   }
 
