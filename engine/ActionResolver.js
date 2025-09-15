@@ -110,6 +110,10 @@ module.exports = {
         }
         break;
 
+      case "future_harvest":
+        // Oolong Tea future harvest effect
+        return "plant_selection_required";
+
       case "apply_effect":
         // e.g. consume tea effects
         const target = actionDef.target;

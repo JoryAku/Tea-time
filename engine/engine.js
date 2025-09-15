@@ -811,6 +811,229 @@ class TeaTimeEngine {
     plantsToRemove.forEach(key => this.lockedPredictions.delete(key));
   }
 
+  // === Oolong Tea Future Harvest System ===
+
+  /**
+   * Simulate future harvest for Oolong Tea effect
+   * @param {Object} plantCard - Plant to simulate future harvest for
+   * @returns {Object} Harvest simulation result
+   */
+  simulateFutureHarvest(plantCard) {
+    console.log('\n🫖 === OOLONG TEA: FUTURE HARVEST SIMULATION ===');
+    console.log(`Simulating future harvest timeline for: ${plantCard.name} [${plantCard.state}]`);
+    
+    // Check if plant is already harvestable
+    if (plantCard.state === 'mature' && plantCard.harvestReady) {
+      console.log('🌿 Plant is already ready to harvest in the present!');
+      console.log('⚠️  No future simulation needed - you can harvest now.');
+      return { 
+        success: false, 
+        message: 'Plant is already harvestable in present',
+        canHarvestNow: true 
+      };
+    }
+
+    // Create timeline to simulate plant's future
+    const timeline = this.createTimeline(48); // 4 years simulation
+    const plantIndex = this.player.garden.indexOf(plantCard);
+    const plantId = timeline.getPlantId(plantCard, plantIndex);
+    
+    // Check if plant will survive
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    
+    // Find the next harvest opportunity
+    const harvestOpportunity = this._findNextHarvestOpportunity(plantCard, timeline, plantId);
+    
+    if (!harvestOpportunity) {
+      console.log('💀 HARVEST FAILED: No future harvest opportunity found.');
+      if (plantDeath) {
+        console.log(`   Reason: Plant will die on action ${plantDeath.deathAction} from ${plantDeath.cause}`);
+        console.log(`   Death occurs in ${plantDeath.season} before reaching harvestable state`);
+        this._displayHarvestProtectionAdvice(plantDeath);
+      } else {
+        console.log('   Reason: Plant never reaches harvestable maturity within 4 years');
+      }
+      return { 
+        success: false, 
+        message: 'No harvest opportunity found',
+        deathInfo: plantDeath 
+      };
+    }
+    
+    // Check if plant survives until harvest
+    if (plantDeath && plantDeath.deathAction <= harvestOpportunity.action) {
+      console.log('💀 HARVEST FAILED: Plant dies before harvest opportunity.');
+      console.log(`   Plant death: Action ${plantDeath.deathAction} (${plantDeath.season}) from ${plantDeath.cause}`);
+      console.log(`   Harvest would be: Action ${harvestOpportunity.action} (${harvestOpportunity.season})`);
+      this._displayHarvestProtectionAdvice(plantDeath);
+      return { 
+        success: false, 
+        message: 'Plant dies before harvest',
+        deathInfo: plantDeath,
+        harvestInfo: harvestOpportunity 
+      };
+    }
+    
+    // SUCCESS: Plant will survive until harvest
+    console.log('✨ HARVEST SUCCESS: Future harvest possible!');
+    console.log(`   Harvest opportunity: Action ${harvestOpportunity.action} (${harvestOpportunity.season})`);
+    console.log(`   Plant state at harvest: ${harvestOpportunity.plantState}`);
+    
+    // Calculate time until harvest
+    const yearsUntilHarvest = Math.ceil(harvestOpportunity.action / 12);
+    const seasonsUntilHarvest = Math.ceil(harvestOpportunity.action / 3);
+    console.log(`   Time until harvest: ~${yearsUntilHarvest} year(s), ${seasonsUntilHarvest} season(s)`);
+    
+    // Show timeline summary leading to harvest
+    this._displayHarvestTimelineSummary(timeline, harvestOpportunity.action);
+    
+    console.log('\n🍃 PULLING FUTURE HARVEST INTO PRESENT...');
+    
+    // Add harvested leaves to kitchen
+    const harvestedLeaves = this.createCard("tea_leaf_raw");
+    this.player.addCardToLocation(harvestedLeaves, "kitchen");
+    
+    console.log('🌿 Added Tea Leaf (Raw) to kitchen from future harvest!');
+    console.log('🔮 The timeline remains unchanged - only the harvest was pulled forward.');
+    console.log('===============================================\n');
+    
+    return { 
+      success: true, 
+      message: 'Future harvest successful',
+      harvestInfo: harvestOpportunity,
+      deathInfo: plantDeath 
+    };
+  }
+
+  /**
+   * Find the next opportunity when the plant would be ready for harvest
+   * @private
+   */
+  _findNextHarvestOpportunity(plantCard, timeline, plantId) {
+    // Look through timeline to find when plant becomes mature and harvestReady
+    for (let action = 1; action <= timeline.events.length; action++) {
+      const plantState = timeline.getPlantStateAtAction(plantId, action);
+      const weatherEvent = timeline.getWeatherAtAction(action);
+      
+      if (plantState && plantState.state === 'mature' && weatherEvent && weatherEvent.season === 'spring') {
+        return {
+          action: action,
+          season: weatherEvent.season,
+          plantState: plantState.state,
+          weather: weatherEvent.weather
+        };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Display protection advice for failed harvests
+   * @private
+   */
+  _displayHarvestProtectionAdvice(plantDeath) {
+    console.log('\n💡 PROTECTION OPTIONS TO ENABLE HARVEST:');
+    if (plantDeath.cause === 'drought') {
+      console.log('   → Apply WATER action before the drought');
+      console.log('   → Water protection lasts 6 actions');
+      console.log(`   → Apply by action ${Math.max(1, plantDeath.deathAction - 6)} to be safe`);
+    } else if (plantDeath.cause === 'frost') {
+      console.log('   → Apply SHELTER action before the frost');
+      console.log('   → Shelter protection lasts 6 actions');
+      console.log(`   → Apply by action ${Math.max(1, plantDeath.deathAction - 6)} to be safe`);
+    } else {
+      console.log(`   → No known protection against ${plantDeath.cause}`);
+    }
+    console.log('   → With protection, try Oolong Tea again for new prediction');
+  }
+
+  /**
+   * Display timeline summary up to harvest point
+   * @private
+   */
+  _displayHarvestTimelineSummary(timeline, harvestAction) {
+    console.log('\n📅 TIMELINE TO HARVEST:');
+    let eventIndex = 0;
+    const currentSeason = this.getCurrentSeason();
+    const actionsPerSeason = this.timeManager.getActionsPerSeason();
+    let remainingActionsInCurrentSeason = this.player.actionsLeft;
+    
+    // Show timeline up to harvest action
+    const maxActionsToShow = Math.min(harvestAction, 24); // Show up to 2 years
+    
+    for (let year = 1; year <= 2 && eventIndex < maxActionsToShow; year++) {
+      console.log(`\n   Year ${year}:`);
+      
+      const seasonOrder = ['spring', 'summer', 'autumn', 'winter'];
+      let startSeasonIndex = year === 1 ? seasonOrder.indexOf(currentSeason) : 0;
+      
+      for (let i = 0; i < 4 && eventIndex < maxActionsToShow; i++) {
+        const seasonIndex = (startSeasonIndex + i) % 4;
+        const season = seasonOrder[seasonIndex];
+        const seasonEvents = [];
+        let hasHarvestEvent = false;
+        
+        const actionsThisSeason = (year === 1 && i === 0) ? remainingActionsInCurrentSeason : actionsPerSeason;
+        
+        for (let j = 0; j < actionsThisSeason && eventIndex < maxActionsToShow && eventIndex < timeline.events.length; j++) {
+          const event = timeline.events[eventIndex];
+          if (event) {
+            seasonEvents.push(event.weather);
+            
+            if (eventIndex + 1 === harvestAction) {
+              hasHarvestEvent = true;
+            }
+          }
+          eventIndex++;
+        }
+        
+        if (seasonEvents.length > 0) {
+          let seasonLine = `     ${season}: ${seasonEvents.join(', ')}`;
+          if (hasHarvestEvent) {
+            seasonLine += ' 🌿 HARVEST READY!';
+          }
+          console.log(seasonLine);
+        }
+      }
+    }
+    
+    if (harvestAction > maxActionsToShow) {
+      console.log(`   ... (${harvestAction - maxActionsToShow} more actions until harvest)`);
+    }
+  }
+
+  /**
+   * Consume Oolong Tea with plant selection for future harvest
+   * @param {Object} teaCard - The Oolong Tea card being consumed
+   * @param {number} plantIndex - Index of plant in garden to harvest from future
+   * @returns {boolean} Whether consumption was successful
+   */
+  consumeOolongTeaWithPlantSelection(teaCard, plantIndex) {
+    const selectedPlant = this.player.garden[plantIndex];
+    if (!selectedPlant) {
+      console.log('❌ No plant found at that garden index.');
+      return false;
+    }
+
+    console.log(`🫖 Consuming ${teaCard.name} to harvest future leaves from ${selectedPlant.name}...`);
+    
+    // Simulate future harvest
+    const harvestResult = this.simulateFutureHarvest(selectedPlant);
+    
+    if (harvestResult.success) {
+      // Remove the consumed tea
+      this.player.removeCardFromCurrentLocation(teaCard);
+      console.log(`🫖 ${teaCard.name} consumed successfully.`);
+      return true;
+    } else {
+      console.log(`❌ Future harvest failed: ${harvestResult.message}`);
+      // Don't consume the tea if harvest failed
+      return false;
+    }
+  }
+
   // === Timeline System ===
 
   /**
