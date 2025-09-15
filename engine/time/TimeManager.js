@@ -1,4 +1,3 @@
-// engine/time/TimeManager.js
 // Handles turn tracking, seasons, and calendar system
 
 class TimeManager {

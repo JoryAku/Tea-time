@@ -1,4 +1,3 @@
-// engine/time/Timeline.js
 // Comprehensive Timeline system that simulates weather events and plant states up to 4 years
 
 class Timeline {
