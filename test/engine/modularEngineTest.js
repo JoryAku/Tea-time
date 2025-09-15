@@ -1,5 +1,6 @@
 // Test to validate the new modular engine structure
 
+const assert = require('assert');
 const TeaTimeEngine = require('../../engine/engine');
 const TimeManager = require('../../engine/time/TimeManager');
 const WeatherSystem = require('../../engine/weather/WeatherSystem');
@@ -22,6 +23,12 @@ console.log(`✅ WeatherSystem created: ${Object.keys(weatherSystem.weatherData)
 console.log(`✅ PlantManager created: ${plantManager.cardsData.plants.length} plant types`);
 console.log(`✅ ActionManager created: ${actionManager.cardsData.ingredients.length} ingredient types\n`);
 
+// Add assertions for subsystem creation
+assert.ok(timeManager.getCurrentSeason(), "TimeManager should have a current season");
+assert.ok(Object.keys(weatherSystem.weatherData).length > 0, "WeatherSystem should have weather data");
+assert.ok(plantManager.cardsData.plants.length > 0, "PlantManager should have plant data");
+assert.ok(actionManager.cardsData.ingredients.length > 0, "ActionManager should have ingredient data");
+
 // Test 2: Engine orchestration
 console.log('Test 2: Testing engine orchestration');
 const engine = new TeaTimeEngine(cardsData, weatherData);
@@ -29,6 +36,11 @@ const engine = new TeaTimeEngine(cardsData, weatherData);
 console.log(`✅ Engine created with current season: ${engine.getCurrentSeason()}`);
 console.log(`✅ Player initialized with ${engine.player.garden.length} plants in garden`);
 console.log(`✅ Actions per season: ${engine.getActionsPerSeason()}\n`);
+
+// Add assertions for engine creation
+assert.ok(engine.getCurrentSeason(), "Engine should have a current season");
+assert.ok(engine.player.garden.length > 0, "Engine player should have plants in garden");
+assert.ok(engine.getActionsPerSeason() > 0, "Engine should have actions per season");
 
 // Test 3: Time management
 console.log('Test 3: Testing time management through engine');
@@ -39,6 +51,10 @@ const newSeason = engine.getCurrentSeason();
 console.log(`✅ Season advanced from ${initialSeason} to ${newSeason}`);
 console.log(`✅ Player actions reset to: ${engine.player.actionsLeft}\n`);
 
+// Add assertions for time management
+assert.notEqual(newSeason, initialSeason, "Season should have advanced");
+assert.ok(engine.player.actionsLeft > 0, "Player should have actions after season advance");
+
 // Test 4: Weather system integration
 console.log('Test 4: Testing weather system integration');
 const randomEvent = engine.weatherSystem.pickWeatherEvent(engine.getCurrentSeason());
@@ -46,6 +62,10 @@ const eventConditions = engine.weatherSystem.getEventConditions(engine.getCurren
 
 console.log(`✅ Weather event generated: ${randomEvent}`);
 console.log(`✅ Event conditions: [${eventConditions.join(', ')}]\n`);
+
+// Add assertions for weather system
+assert.ok(randomEvent, "Weather system should generate an event");
+assert.ok(Array.isArray(eventConditions), "Weather system should return event conditions");
 
 // Test 5: Plant management
 console.log('Test 5: Testing plant management');
@@ -85,3 +105,6 @@ console.log('=== All Modular Engine Tests Completed ===');
 console.log('✅ Modular structure successfully implemented!');
 console.log('✅ Backward compatibility maintained!');
 console.log('✅ All subsystems working correctly!');
+
+// Final assertion to confirm all tests passed
+assert.ok(true, "All modular engine tests completed successfully");

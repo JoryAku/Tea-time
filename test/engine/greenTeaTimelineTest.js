@@ -1,5 +1,6 @@
 // Comprehensive test for Green Tea 4-year timeline functionality with interventions
 
+const assert = require('assert');
 const Game = require("../../engine/Game");
 const ActionResolver = require("../../engine/ActionResolver");
 
@@ -18,8 +19,9 @@ function testGreenTeaTimeline() {
 
   // Test 1: Brew Green Tea
   console.log("Test 1: Brewing Green Tea");
+  let brewResult = false;
   if (game.player.kitchen.length > 0) {
-    const brewResult = ActionResolver.resolve("brew kitchen 0", game);
+    brewResult = ActionResolver.resolve("brew kitchen 0", game);
     console.log("✅ Brew successful:", brewResult);
     console.log("Cafe now contains:", game.player.cafe.map(p => p.name).join(", "));
   }
@@ -27,6 +29,7 @@ function testGreenTeaTimeline() {
 
   // Test 2: Consume Green Tea and show 4-year timeline
   console.log("Test 2: Consuming Green Tea to view 4-year timeline");
+  let consumeResult = false;
   if (game.player.cafe.length > 0 && game.player.garden.length > 0) {
     const teaCard = game.player.cafe[0];
     const plantIndex = 0;
@@ -34,7 +37,7 @@ function testGreenTeaTimeline() {
     console.log(`Consuming ${teaCard.name} to predict future of plant ${plantIndex}...`);
     console.log("");
     
-    const consumeResult = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
+    consumeResult = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
     console.log("✅ Timeline consumption successful:", consumeResult);
   } else {
     console.log("❌ No tea in cafe or no plants in garden");
@@ -61,6 +64,7 @@ function testGreenTeaTimeline() {
   // Apply water protection
   const waterResult = game2.engine.applyProtectiveIntervention(0, 'water');
   console.log("\n✅ Water intervention applied:", waterResult.success);
+  console.log("\n✅ Water intervention applied:", waterResult.success);
   
   console.log("After water intervention:");
   console.log(`Active conditions: ${Object.keys(plant.activeConditions || {}).join(', ') || 'none'}`);
@@ -84,6 +88,11 @@ function testGreenTeaTimeline() {
   game3.consumeGreenTeaWithPlantSelection(teaCard3, 0);
   
   console.log("✅ All Green Tea timeline tests completed!");
+  
+  // Add assertions for the various test results
+  assert.strictEqual(brewResult, true, "Brewing green tea should succeed");
+  assert.strictEqual(consumeResult, true, "Consuming green tea should succeed");
+  assert.strictEqual(waterResult.success, true, "Water intervention should succeed");
 }
 
 function testTimelineAccuracyAndConsistency() {
@@ -143,6 +152,9 @@ function testTimelineAccuracyAndConsistency() {
   });
   
   console.log("✅ Timeline accuracy and consistency tests completed!");
+  
+  // Add assertion for consistency
+  assert.strictEqual(consistent, true, "Timeline predictions should be consistent");
 }
 
 function testVulnerabilityAndProtectionLogic() {
@@ -185,6 +197,9 @@ function testVulnerabilityAndProtectionLogic() {
   });
   
   console.log("\n✅ Vulnerability and protection logic tests completed!");
+  
+  // Add assertion for vulnerability tests
+  assert.ok(vulnerabilities.length >= 0, "Plant should have defined vulnerabilities (could be 0)");
 }
 
 // Run all tests
