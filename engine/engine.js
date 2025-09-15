@@ -1,6 +1,7 @@
 // Main engine orchestrator that coordinates all subsystems
 
 const TimeManager = require('./time/TimeManager');
+const Timeline = require('./time/Timeline');
 const WeatherSystem = require('./weather/WeatherSystem');
 const PlantManager = require('./plants/PlantManager');
 const ActionManager = require('./actions/ActionManager');
@@ -639,6 +640,87 @@ class TeaTimeEngine {
     
     // Remove completed predictions
     plantsToRemove.forEach(key => this.lockedPredictions.delete(key));
+  }
+
+  // === Timeline System ===
+
+  /**
+   * Create a comprehensive timeline simulation for all garden plants
+   * @param {number} actionsToSimulate - Number of actions to simulate (default 48 = 4 years)
+   * @returns {Timeline} Timeline object with locked events and plant outcomes
+   */
+  createTimeline(actionsToSimulate = 48) {
+    const timeline = new Timeline(
+      this,
+      this.getCurrentSeason(),
+      this.player.actionsLeft
+    );
+    
+    // Generate timeline for all plants in garden
+    const timelineData = timeline.generateTimeline(this.player.garden, actionsToSimulate);
+    
+    console.log(`📅 Timeline generated for ${timelineData.totalActions} actions`);
+    console.log(`🌱 Simulated ${this.player.garden.length} plants`);
+    
+    // Report death predictions
+    const deathPredictions = timeline.getDeathPredictions();
+    if (deathPredictions.length > 0) {
+      console.log(`⚠️  ${deathPredictions.length} plants predicted to die:`);
+      deathPredictions.forEach(death => {
+        console.log(`   Action ${death.deathAction} (${death.season}): ${death.plantId} - ${death.cause}`);
+      });
+    } else {
+      console.log(`✅ All plants predicted to survive the timeline`);
+    }
+    
+    return timeline;
+  }
+
+  /**
+   * Peek at weather events for the next N actions using Timeline system
+   * @param {number} n - Number of actions to peek ahead (default 1)
+   * @returns {Array} Array of weather events with seasonal context
+   */
+  peekTimelineWeather(n = 1) {
+    const timeline = this.createTimeline(n);
+    const events = [];
+    
+    for (let i = 1; i <= n; i++) {
+      const event = timeline.getWeatherAtAction(i);
+      if (event) {
+        events.push({
+          action: i,
+          season: event.season,
+          weather: event.weather,
+          conditions: event.conditions
+        });
+      }
+    }
+    
+    return events;
+  }
+
+  /**
+   * Get a detailed forecast of plant states and weather for visualization
+   * @param {number} actionsToSimulate - How far to look ahead
+   * @returns {Object} Detailed forecast data
+   */
+  getDetailedForecast(actionsToSimulate = 12) {
+    const timeline = this.createTimeline(actionsToSimulate);
+    
+    return {
+      timeline: timeline,
+      weather: timeline.events.map(event => ({
+        action: event.action,
+        season: event.season,
+        weather: event.weather,
+        conditions: event.conditions
+      })),
+      plantOutcomes: timeline.plantOutcomes,
+      deathPredictions: timeline.getDeathPredictions(),
+      totalActions: actionsToSimulate,
+      isLocked: timeline.isLocked
+    };
   }
 }
 

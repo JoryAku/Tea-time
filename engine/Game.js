@@ -64,6 +64,23 @@ class Game {
   consumeGreenTeaWithPlantSelection(teaCard, plantIndex) {
     return this.engine.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
   }
+
+  // === Timeline System Methods ===
+
+  // Create a comprehensive timeline for all garden plants
+  createTimeline(actionsToSimulate = 48) {
+    return this.engine.createTimeline(actionsToSimulate);
+  }
+
+  // Get detailed forecast with timeline data
+  getDetailedForecast(actionsToSimulate = 12) {
+    return this.engine.getDetailedForecast(actionsToSimulate);
+  }
+
+  // Peek at weather using timeline system
+  peekTimelineWeather(n = 1) {
+    return this.engine.peekTimelineWeather(n);
+  }
 }
 
 module.exports = Game;
