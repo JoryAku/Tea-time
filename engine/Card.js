@@ -27,6 +27,9 @@ class Card {
     // Tea processing specific properties
     this.oxidationProgress = 0;
     this.oxidationActionsLeft = 0;
+    
+    // Harvest readiness for mature plants (only true in spring)
+    this.harvestReady = false;
   }
 
   get name() {
@@ -40,14 +43,21 @@ class Card {
   // returns the actions available for the current state of this card
   getActions() {
     // First check if the card has states and current state has actions
+    let actions = {};
     if (this.definition.states && this.definition.states[this.state] && this.definition.states[this.state].actions) {
-      return this.definition.states[this.state].actions;
+      actions = { ...this.definition.states[this.state].actions };
     }
     // If no states, check for actions at the root level (for ingredients)
-    if (this.definition.actions) {
-      return this.definition.actions;
+    else if (this.definition.actions) {
+      actions = { ...this.definition.actions };
     }
-    return {};
+    
+    // For mature plants, only allow harvest if harvestReady is true
+    if (this.state === 'mature' && actions.harvest && !this.harvestReady) {
+      delete actions.harvest;
+    }
+    
+    return actions;
   }
 
   canPerformAction(action) {
