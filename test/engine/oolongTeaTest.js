@@ -52,14 +52,47 @@ function testOolongTeaFutureHarvest() {
   const consumeResult = game.consumeOolongTeaWithPlantSelection(teaCard, plantIndex);
   console.log("\nConsumption result:", consumeResult);
   
-  if (consumeResult) {
+  if (consumeResult.success && consumeResult.requiresSelection) {
+    // New API: harvest selection required
+    console.log("✅ Harvest timeline generated successfully - harvest opportunities found!");
+    assert.ok(consumeResult.harvestOpportunities.length > 0, "Should have harvest opportunities");
+    
+    // Select the first available harvest
+    const selectedHarvestIndex = 0;
+    console.log(`Selecting harvest ${selectedHarvestIndex} from ${consumeResult.harvestOpportunities.length} opportunities...`);
+    
+    const finalResult = game.consumeOolongTeaWithPlantSelection(
+      consumeResult.teaCard, 
+      consumeResult.plantIndex, 
+      selectedHarvestIndex,
+      {
+        success: true,
+        harvestOpportunities: consumeResult.harvestOpportunities,
+        deathInfo: consumeResult.deathInfo,
+        timeline: consumeResult.timeline
+      }
+    );
+    console.log("Final harvest result:", finalResult);
+    
+    if (finalResult.success) {
+      assert.strictEqual(game.player.cafe.length, 0, "Cafe should be empty after successful consumption");
+      // Check if new tea leaves were added to kitchen
+      const initialKitchenCount = 1; // Started with 1 green tea leaf
+      assert.ok(game.player.kitchen.length > initialKitchenCount, "Should have additional leaves in kitchen from future harvest");
+      console.log("✅ Future harvest successful - new leaves added to kitchen!");
+    } else {
+      console.log("⚠️ Final harvest execution failed:", finalResult.message);
+      assert.strictEqual(game.player.cafe.length, 1, "Tea should not be consumed if harvest failed");
+    }
+  } else if (consumeResult.success) {
+    // Old API compatibility - direct success
     assert.strictEqual(game.player.cafe.length, 0, "Cafe should be empty after successful consumption");
-    // Check if new tea leaves were added to kitchen
     const initialKitchenCount = 1; // Started with 1 green tea leaf
     assert.ok(game.player.kitchen.length > initialKitchenCount, "Should have additional leaves in kitchen from future harvest");
     console.log("✅ Future harvest successful - new leaves added to kitchen!");
   } else {
     console.log("⚠️ Future harvest failed - this is expected if plant would die before harvest");
+    console.log("Failure reason:", consumeResult.message);
     // Tea should not be consumed if harvest failed
     assert.strictEqual(game.player.cafe.length, 1, "Tea should not be consumed if harvest failed");
   }
@@ -89,7 +122,8 @@ function testOolongTeaWithCurrentlyHarvestableAdvancedPlant() {
   const consumeResult = game.consumeOolongTeaWithPlantSelection(oolongTea, 1);
   
   // Should fail because plant is already harvestable in present
-  assert.strictEqual(consumeResult, false, "Should fail when plant is already harvestable");
+  assert.strictEqual(consumeResult.success, false, "Should fail when plant is already harvestable");
+  assert.strictEqual(consumeResult.canHarvestNow, true, "Should indicate plant is harvestable now");
   assert.strictEqual(game.player.cafe.length, 1, "Tea should not be consumed");
   
   console.log("✅ Correctly rejected attempt to future harvest already harvestable plant!");
