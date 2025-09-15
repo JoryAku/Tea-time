@@ -148,7 +148,15 @@ class Timeline {
     return deaths.sort((a, b) => a.deathAction - b.deathAction);
   }
 
-  // === Private Methods ===
+  /**
+   * Get the plant ID for a given plant (public accessor for engine)
+   * @param {Object} plant - Plant card object
+   * @param {number} index - Plant index
+   * @returns {string} Plant ID
+   */
+  getPlantId(plant, index) {
+    return this._generatePlantId(plant, index);
+  }
 
   /**
    * Generate unique identifier for a plant
@@ -167,17 +175,45 @@ class Timeline {
     const stageDef = plant.definition.states[plant.state];
     const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
+    // Check initial active protections
+    const activeProtections = plant.activeConditions || {};
+    
     // Calculate base survival probability - balanced for interesting outcomes
     let survivalChance = 75; // Balanced at 75%
     
-    // Reduce survival chance based on vulnerabilities
+    // Reduce survival chance based on unprotected vulnerabilities
+    let protectedVulnerabilities = 0;
     vulnerabilities.forEach(vulnerability => {
-      // Get seasonal probability for this vulnerability
-      const seasonalRisk = this._calculateSeasonalVulnerabilityRisk(vulnerability);
-      survivalChance -= seasonalRisk;
+      // Check if this vulnerability is currently protected
+      let isProtected = false;
+      if (vulnerability.event === 'drought' && activeProtections['water']) {
+        isProtected = true;
+        protectedVulnerabilities++;
+      } else if (vulnerability.event === 'frost' && activeProtections['sunlight']) {
+        isProtected = true;
+        protectedVulnerabilities++;
+      }
+      
+      // Only count unprotected vulnerabilities against survival
+      if (!isProtected) {
+        const seasonalRisk = this._calculateSeasonalVulnerabilityRisk(vulnerability);
+        survivalChance -= seasonalRisk;
+      }
     });
     
-    // Adjust for plant age and lifespan
+    // Bonus for having protections (but only if they're long-lasting enough)
+    if (protectedVulnerabilities > 0) {
+      // Calculate average protection duration
+      const totalProtectionDuration = Object.values(activeProtections).reduce((sum, duration) => sum + duration, 0);
+      const avgProtectionDuration = totalProtectionDuration / Object.keys(activeProtections).length;
+      
+      // Only give full bonus if protection lasts at least 30% of the simulation
+      const protectionRatio = Math.min(1.0, avgProtectionDuration / (actionsToSimulate * 0.3));
+      const protectionBonus = protectedVulnerabilities * 15 * protectionRatio;
+      survivalChance += protectionBonus;
+    }
+    
+    // Adjust for plant age if it has lifespan
     if (plant.lifespan) {
       const currentAge = plant.age || 0;
       const ageRatio = currentAge / plant.lifespan;
@@ -195,11 +231,46 @@ class Timeline {
     
     const willSurvive = survivalRoll < survivalChance;
     
+    // If plant has protections, we need to check if they last long enough
+    let deathAction = null;
+    let deathCause = null;
+    
+    if (!willSurvive) {
+      deathAction = this._calculateDeathAction(plant, actionsToSimulate, plantStateHash);
+      deathCause = this._selectDeathCause(plant, deathAction);
+      
+      // Check if the death cause is protected and protection lasts until death action
+      // Protection duration is counted from action 1, so protection expires at action X+1
+      const protectionDuration = activeProtections[deathCause === 'drought' ? 'water' : 'sunlight'] || 0;
+      
+      if (deathCause === 'drought' && activeProtections['water'] && protectionDuration >= deathAction) {
+        // Protection lasts long enough, plant survives
+        return { willSurvive: true, deathAction: null, deathCause: null, protectedBy: 'water' };
+      } else if (deathCause === 'frost' && activeProtections['sunlight'] && protectionDuration >= deathAction) {
+        // Protection lasts long enough, plant survives  
+        return { willSurvive: true, deathAction: null, deathCause: null, protectedBy: 'sunlight' };
+      }
+      
+      // Protection doesn't last long enough, but may delay death
+      if ((deathCause === 'drought' && activeProtections['water']) || 
+          (deathCause === 'frost' && activeProtections['sunlight'])) {
+        // Death is delayed until after protection expires
+        const delayedDeathAction = Math.max(deathAction, protectionDuration + 1);
+        if (delayedDeathAction <= actionsToSimulate) {
+          deathAction = delayedDeathAction;
+        } else {
+          // Protection lasts the entire simulation, plant survives
+          return { willSurvive: true, deathAction: null, deathCause: null, protectedBy: deathCause === 'drought' ? 'water' : 'sunlight' };
+        }
+      }
+    }
+    
     return {
       willSurvive: willSurvive,
       survivalChance: survivalChance,
-      deathAction: willSurvive ? null : this._calculateDeathAction(plant, actionsToSimulate, plantStateHash),
-      deathCause: willSurvive ? null : this._selectDeathCause(plant)
+      deathAction: deathAction,
+      deathCause: deathCause,
+      protectedVulnerabilities: protectedVulnerabilities
     };
   }
 
@@ -244,19 +315,64 @@ class Timeline {
    * @private
    */
   _calculateDeathAction(plant, actionsToSimulate, plantStateHash) {
-    // Death should occur between 60% and 95% of simulation time
-    const minDeathAction = Math.floor(actionsToSimulate * 0.6);
-    const maxDeathAction = Math.floor(actionsToSimulate * 0.95);
-    const deathRange = maxDeathAction - minDeathAction;
+    const stageDef = plant.definition.states[plant.state];
+    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
-    return minDeathAction + (plantStateHash % deathRange);
+    if (vulnerabilities.length === 0) {
+      // No vulnerabilities, plant dies of old age late in timeline
+      return Math.floor(actionsToSimulate * 0.9);
+    }
+    
+    // Find seasons where vulnerability events can occur
+    const vulnerabilitySeasons = new Map();
+    vulnerabilities.forEach(vuln => {
+      Object.entries(this.engine.weatherData).forEach(([season, events]) => {
+        if (events.some(event => event.event === vuln.event)) {
+          if (!vulnerabilitySeasons.has(vuln.event)) {
+            vulnerabilitySeasons.set(vuln.event, []);
+          }
+          vulnerabilitySeasons.get(vuln.event).push(season);
+        }
+      });
+    });
+    
+    // Generate possible death actions that align with vulnerability seasons
+    const possibleDeathActions = [];
+    let currentSeasonIndex = this.engine.timeManager.seasons.indexOf(this.startingSeason);
+    let actionsLeftInSeason = this.startingActionsLeft;
+    
+    for (let action = 1; action <= actionsToSimulate; action++) {
+      if (actionsLeftInSeason <= 0) {
+        currentSeasonIndex = (currentSeasonIndex + 1) % 4;
+        actionsLeftInSeason = this.engine.timeManager.getActionsPerSeason();
+      }
+      actionsLeftInSeason--;
+      
+      const actionSeason = this.engine.timeManager.seasons[currentSeasonIndex];
+      
+      // Check if any vulnerability can occur in this season
+      for (const [vulnEvent, seasons] of vulnerabilitySeasons) {
+        if (seasons.includes(actionSeason) && action >= Math.floor(actionsToSimulate * 0.3)) {
+          possibleDeathActions.push({ action, season: actionSeason, vulnerability: vulnEvent });
+        }
+      }
+    }
+    
+    if (possibleDeathActions.length === 0) {
+      // No suitable death actions found, die late in timeline
+      return Math.floor(actionsToSimulate * 0.9);
+    }
+    
+    // Select a death action based on plant hash for consistency
+    const deathIndex = plantStateHash % possibleDeathActions.length;
+    return possibleDeathActions[deathIndex].action;
   }
 
   /**
-   * Select which vulnerability will cause death
+   * Select which vulnerability will cause death based on death action season
    * @private
    */
-  _selectDeathCause(plant) {
+  _selectDeathCause(plant, deathAction = null) {
     const stageDef = plant.definition.states[plant.state];
     const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
@@ -264,7 +380,22 @@ class Timeline {
       return 'age'; // Default death cause
     }
     
-    // Select based on plant hash to ensure consistency
+    // If we have a death action, determine which vulnerability can occur in that season
+    if (deathAction) {
+      const deathSeason = this._getSeasonForAction(deathAction);
+      const seasonWeather = this.engine.weatherData[deathSeason];
+      const availableVulnerabilities = vulnerabilities.filter(vuln => 
+        seasonWeather.some(weather => weather.event === vuln.event)
+      );
+      
+      if (availableVulnerabilities.length > 0) {
+        // Select based on plant hash to ensure consistency
+        const hash = this._calculatePlantStateHash(plant);
+        return availableVulnerabilities[hash % availableVulnerabilities.length].event;
+      }
+    }
+    
+    // Fallback: select based on plant hash from all vulnerabilities
     const hash = this._calculatePlantStateHash(plant);
     return vulnerabilities[hash % vulnerabilities.length].event;
   }
@@ -365,14 +496,14 @@ class Timeline {
         const previousState = { state: plant.state, age: plant.age };
         
         // Apply weather effects
-        this.engine.plantManager.applyWeatherToPlant(plant, weatherEvent, conditions);
+        this.engine.plantManager.applyWeatherToPlant(plant, weatherEvent, conditions, true); // Suppress logging during simulation
         
         // Check for death
         const plantId = this.plantIds[index];
         const outcome = this.plantOutcomes.get(plantId);
         if (outcome && !outcome.willSurvive && outcome.deathAction === action) {
           plant.state = 'dead';
-          plant.deathCause = weatherEvent;
+          plant.deathCause = outcome.deathCause; // Use the predicted vulnerability cause, not the actual weather event
         }
         
         // Record state change if significant
