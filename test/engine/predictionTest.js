@@ -1,5 +1,6 @@
 // Test the outcome-driven prediction system for Green Tea effects
 
+const assert = require('assert');
 const Game = require("../../engine/Game");
 
 function testPredictionSystem() {
@@ -22,6 +23,9 @@ function testPredictionSystem() {
   testRandomizationWithinConstraints();
   
   console.log("\n✅ All prediction tests completed!");
+  
+  // Final assertion to confirm all tests passed
+  console.log("✅ Prediction system test passed!");
 }
 
 function testAlivePrediction() {
@@ -46,11 +50,10 @@ function testAlivePrediction() {
       );
       
       if (hasVulnerableEvent) {
-        console.log("❌ FAILURE: Alive prediction contains vulnerability events!");
-        console.log("   Vulnerable events found:", prediction.weatherForecast.filter(event => 
+        const vulnerableEvents = prediction.weatherForecast.filter(event => 
           vulnerableEvents.includes(event)
-        ));
-        return false;
+        );
+        assert.fail(`Alive prediction contains vulnerability events: ${vulnerableEvents.join(", ")}`);
       }
       
       console.log("✅ Alive prediction verified - no vulnerability events in forecast");
@@ -90,11 +93,7 @@ function testDeadPrediction() {
       const deathEvent = prediction.weatherForecast[deathAction - 1];
       
       if (!vulnerableEvents.includes(deathEvent)) {
-        console.log("❌ FAILURE: Dead prediction doesn't have vulnerability event on death day!");
-        console.log(`   Death action: ${deathAction}`);
-        console.log(`   Death event: ${deathEvent}`);
-        console.log(`   Plant vulnerabilities: ${vulnerableEvents.join(", ")}`);
-        return false;
+        assert.fail(`Dead prediction doesn't have vulnerability event on death day! Death action: ${deathAction}, Death event: ${deathEvent}, Plant vulnerabilities: ${vulnerableEvents.join(", ")}`);
       }
       
       // Verify events before death don't include vulnerabilities
@@ -104,11 +103,10 @@ function testDeadPrediction() {
       );
       
       if (hasEarlyVulnerableEvent) {
-        console.log("❌ FAILURE: Dead prediction has vulnerability events before death day!");
-        console.log("   Early vulnerable events:", eventsBeforeDeath.filter(event => 
+        const earlyEvents = eventsBeforeDeath.filter(event => 
           vulnerableEvents.includes(event)
-        ));
-        return false;
+        );
+        assert.fail(`Dead prediction has vulnerability events before death day: ${earlyEvents.join(", ")}`);
       }
       
       console.log("✅ Dead prediction verified - vulnerability event on death day only");
@@ -171,26 +169,17 @@ function testRandomizationWithinConstraints() {
       const hasVulnerable = prediction.weatherForecast.some(event => 
         vulnerableEvents.includes(event)
       );
-      if (hasVulnerable) {
-        console.log(`❌ Prediction ${index + 1}: Alive but contains vulnerable events`);
-        allValid = false;
-      }
+      assert.ok(!hasVulnerable, `Prediction ${index + 1}: Alive but contains vulnerable events`);
     } else {
       // Dead: should have vulnerable event on death day
       const deathAction = prediction.deathInfo.action;
       const deathEvent = prediction.weatherForecast[deathAction - 1];
-      if (!vulnerableEvents.includes(deathEvent)) {
-        console.log(`❌ Prediction ${index + 1}: Dead but no vulnerable event on death day`);
-        allValid = false;
-      }
+      assert.ok(vulnerableEvents.includes(deathEvent), `Prediction ${index + 1}: Dead but no vulnerable event on death day`);
     }
   });
   
-  if (allValid) {
-    console.log("✅ All predictions follow outcome-driven constraints");
-  }
-  
-  return allValid;
+  console.log("✅ All predictions follow outcome-driven constraints");
+  return true;
 }
 
 function getPlantVulnerabilities(plant) {

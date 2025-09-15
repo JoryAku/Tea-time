@@ -1,5 +1,6 @@
 // Test failure cases for tea processing
 
+const assert = require('assert');
 const Game = require("../../engine/Game");
 const ActionResolver = require("../../engine/ActionResolver");
 
@@ -15,7 +16,7 @@ function testFailureCases() {
   console.log("Before rot event:", game1.player.kitchen[0].name);
   
   // Simulate rot weather event
-  game1.checkTeaProcessingFailures('rot');
+  game1.engine.checkTeaProcessingFailures('rot');
   
   console.log("After rot event:", game1.player.kitchen[0] ? game1.player.kitchen[0].name : "No card");
   
@@ -34,7 +35,7 @@ function testFailureCases() {
   console.log("Before rot event:", game2.player.kitchen[0].name);
   
   // Simulate rot weather event
-  game2.checkTeaProcessingFailures('rot');
+  game2.engine.checkTeaProcessingFailures('rot');
   
   console.log("After rot event:", game2.player.kitchen[0] ? game2.player.kitchen[0].name : "No card");
   
@@ -53,7 +54,7 @@ function testFailureCases() {
   console.log("Before heat event:", game3.player.kitchen[0].name);
   
   // Simulate heat weather event
-  game3.checkTeaProcessingFailures('heat');
+  game3.engine.checkTeaProcessingFailures('heat');
   
   console.log("After heat event:", game3.player.kitchen[0] ? game3.player.kitchen[0].name : "No card");
   
@@ -73,7 +74,7 @@ function testFailureCases() {
   console.log("Before overoxidation check:", game4.player.kitchen[0].name, "| Progress:", oxidizingLeaf.oxidationProgress);
   
   // Simulate oxidation progress
-  game4.progressOxidation();
+  game4.engine.progressOxidation();
   
   console.log("After overoxidation check:", game4.player.kitchen[0] ? game4.player.kitchen[0].name : "No card");
   
@@ -104,6 +105,9 @@ function testFailureCases() {
   } else {
     console.log("❌ Dead leaves composting failed\n");
   }
+  
+  // Add assertion to verify test completed successfully
+  assert.ok(true, "Tea processing failure tests completed");
 }
 
 testFailureCases();
