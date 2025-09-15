@@ -175,17 +175,45 @@ class Timeline {
     const stageDef = plant.definition.states[plant.state];
     const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
+    // Check initial active protections
+    const activeProtections = plant.activeConditions || {};
+    
     // Calculate base survival probability - balanced for interesting outcomes
     let survivalChance = 75; // Balanced at 75%
     
-    // Reduce survival chance based on vulnerabilities
+    // Reduce survival chance based on unprotected vulnerabilities
+    let protectedVulnerabilities = 0;
     vulnerabilities.forEach(vulnerability => {
-      // Get seasonal probability for this vulnerability
-      const seasonalRisk = this._calculateSeasonalVulnerabilityRisk(vulnerability);
-      survivalChance -= seasonalRisk;
+      // Check if this vulnerability is currently protected
+      let isProtected = false;
+      if (vulnerability.event === 'drought' && activeProtections['water']) {
+        isProtected = true;
+        protectedVulnerabilities++;
+      } else if (vulnerability.event === 'frost' && activeProtections['sunlight']) {
+        isProtected = true;
+        protectedVulnerabilities++;
+      }
+      
+      // Only count unprotected vulnerabilities against survival
+      if (!isProtected) {
+        const seasonalRisk = this._calculateSeasonalVulnerabilityRisk(vulnerability);
+        survivalChance -= seasonalRisk;
+      }
     });
     
-    // Adjust for plant age and lifespan
+    // Bonus for having protections (but only if they're long-lasting enough)
+    if (protectedVulnerabilities > 0) {
+      // Calculate average protection duration
+      const totalProtectionDuration = Object.values(activeProtections).reduce((sum, duration) => sum + duration, 0);
+      const avgProtectionDuration = totalProtectionDuration / Object.keys(activeProtections).length;
+      
+      // Only give full bonus if protection lasts at least 30% of the simulation
+      const protectionRatio = Math.min(1.0, avgProtectionDuration / (actionsToSimulate * 0.3));
+      const protectionBonus = protectedVulnerabilities * 15 * protectionRatio;
+      survivalChance += protectionBonus;
+    }
+    
+    // Adjust for plant age if it has lifespan
     if (plant.lifespan) {
       const currentAge = plant.age || 0;
       const ageRatio = currentAge / plant.lifespan;
@@ -202,13 +230,47 @@ class Timeline {
     const survivalRoll = (plantStateHash % 100);
     
     const willSurvive = survivalRoll < survivalChance;
-    const deathAction = willSurvive ? null : this._calculateDeathAction(plant, actionsToSimulate, plantStateHash);
+    
+    // If plant has protections, we need to check if they last long enough
+    let deathAction = null;
+    let deathCause = null;
+    
+    if (!willSurvive) {
+      deathAction = this._calculateDeathAction(plant, actionsToSimulate, plantStateHash);
+      deathCause = this._selectDeathCause(plant, deathAction);
+      
+      // Check if the death cause is protected and protection lasts until death action
+      // Protection duration is counted from action 1, so protection expires at action X+1
+      const protectionDuration = activeProtections[deathCause === 'drought' ? 'water' : 'sunlight'] || 0;
+      
+      if (deathCause === 'drought' && activeProtections['water'] && protectionDuration >= deathAction) {
+        // Protection lasts long enough, plant survives
+        return { willSurvive: true, deathAction: null, deathCause: null, protectedBy: 'water' };
+      } else if (deathCause === 'frost' && activeProtections['sunlight'] && protectionDuration >= deathAction) {
+        // Protection lasts long enough, plant survives  
+        return { willSurvive: true, deathAction: null, deathCause: null, protectedBy: 'sunlight' };
+      }
+      
+      // Protection doesn't last long enough, but may delay death
+      if ((deathCause === 'drought' && activeProtections['water']) || 
+          (deathCause === 'frost' && activeProtections['sunlight'])) {
+        // Death is delayed until after protection expires
+        const delayedDeathAction = Math.max(deathAction, protectionDuration + 1);
+        if (delayedDeathAction <= actionsToSimulate) {
+          deathAction = delayedDeathAction;
+        } else {
+          // Protection lasts the entire simulation, plant survives
+          return { willSurvive: true, deathAction: null, deathCause: null, protectedBy: deathCause === 'drought' ? 'water' : 'sunlight' };
+        }
+      }
+    }
     
     return {
       willSurvive: willSurvive,
       survivalChance: survivalChance,
       deathAction: deathAction,
-      deathCause: willSurvive ? null : this._selectDeathCause(plant, deathAction)
+      deathCause: deathCause,
+      protectedVulnerabilities: protectedVulnerabilities
     };
   }
 
@@ -434,7 +496,7 @@ class Timeline {
         const previousState = { state: plant.state, age: plant.age };
         
         // Apply weather effects
-        this.engine.plantManager.applyWeatherToPlant(plant, weatherEvent, conditions);
+        this.engine.plantManager.applyWeatherToPlant(plant, weatherEvent, conditions, true); // Suppress logging during simulation
         
         // Check for death
         const plantId = this.plantIds[index];
