@@ -54,6 +54,12 @@ module.exports = {
         // move card to a new zone, optionally set new state
         game.player.removeCardFromCurrentLocation(card);
         if (actionDef.newState) card.state = actionDef.newState;
+        
+        // Assign unique ID if moving a plant to garden
+        if (actionDef.location === 'garden' && card.definition.type !== 'Tea' && card.definition.type !== 'Ingredient') {
+          game.assignPlantId(card);
+        }
+        
         game.player.addCardToLocation(card, actionDef.location);
         break;
 
@@ -61,6 +67,12 @@ module.exports = {
         // create a new card instance and put it in a location
         try {
           const newCard = game.createCard(actionDef.target, actionDef.state);
+          
+          // Assign unique ID if adding a plant to garden
+          if (actionDef.location === 'garden' && newCard.definition.type !== 'Tea' && newCard.definition.type !== 'Ingredient') {
+            game.assignPlantId(newCard);
+          }
+          
           game.player.addCardToLocation(newCard, actionDef.location);
           // Remove the original card if it's a consumption action
           if (actionDef.removeOriginal !== false) {
