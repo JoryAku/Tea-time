@@ -354,11 +354,31 @@ class TeaTimeEngine {
     
     // Base survival chance on plant maturity and vulnerabilities
     const stageDef = plantCard.definition.states[plantCard.state];
-    const vulnerabilityCount = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities.length : 0;
+    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
+    
+    // Check if plant has active protections against its vulnerabilities
+    const activeProtections = plantCard.activeConditions || {};
+    let protectedVulnerabilities = 0;
+    
+    vulnerabilities.forEach(vuln => {
+      if (vuln.event === 'drought' && activeProtections['water']) {
+        protectedVulnerabilities++;
+      } else if (vuln.event === 'frost' && activeProtections['sunlight']) {
+        protectedVulnerabilities++;
+      }
+    });
+    
+    // Calculate effective vulnerability count (subtract protected ones)
+    const effectiveVulnerabilityCount = Math.max(0, vulnerabilities.length - protectedVulnerabilities);
     
     // Calculate survival chance (more vulnerable plants have lower survival rates)
     let survivalChance = 85; // Base 85% survival rate (increased from 75%)
-    survivalChance -= (vulnerabilityCount * 10); // -10% per vulnerability (reduced from 15%)
+    survivalChance -= (effectiveVulnerabilityCount * 10); // -10% per unprotected vulnerability
+    
+    // Bonus for having protections
+    if (protectedVulnerabilities > 0) {
+      survivalChance += protectedVulnerabilities * 15; // +15% per protected vulnerability
+    }
     
     // Adjust for plant age if it has lifespan
     if (plantCard.lifespan) {
@@ -370,13 +390,29 @@ class TeaTimeEngine {
     }
     
     // Ensure survival chance is within reasonable bounds
-    survivalChance = Math.max(30, Math.min(90, survivalChance)); // Adjusted bounds
+    survivalChance = Math.max(30, Math.min(95, survivalChance)); // Adjusted bounds
     
     const willSurvive = survivalRoll < survivalChance;
+    let deathAction = null;
+    
+    if (!willSurvive) {
+      deathAction = this.calculateDeathAction(plantCard, actionsToSimulate, plantStateHash);
+      // If death action is null (due to long-lasting protection), plant survives
+      if (deathAction === null) {
+        return {
+          willSurvive: true,
+          deathAction: null,
+          protectedVulnerabilities: protectedVulnerabilities,
+          effectiveVulnerabilities: effectiveVulnerabilityCount
+        };
+      }
+    }
     
     return {
       willSurvive: willSurvive,
-      deathAction: willSurvive ? null : this.calculateDeathAction(plantCard, actionsToSimulate, plantStateHash)
+      deathAction: deathAction,
+      protectedVulnerabilities: protectedVulnerabilities,
+      effectiveVulnerabilities: effectiveVulnerabilityCount
     };
   }
 
@@ -394,9 +430,29 @@ class TeaTimeEngine {
 
   // Calculate when the plant should die (if it's destined to die)
   calculateDeathAction(plantCard, actionsToSimulate, plantStateHash) {
-    // Choose a death action between 60% and 95% of the simulation time
-    const minDeathAction = Math.floor(actionsToSimulate * 0.6);
+    // Check if plant has active protections
+    const activeProtections = plantCard.activeConditions || {};
+    let protectionExpiry = 0;
+    
+    // Find the longest lasting protection
+    Object.values(activeProtections).forEach(duration => {
+      if (duration > protectionExpiry) {
+        protectionExpiry = duration;
+      }
+    });
+    
+    // Death should occur after protections expire
+    const minDeathAction = Math.max(
+      protectionExpiry + 1, // At least 1 action after protection expires
+      Math.floor(actionsToSimulate * 0.6)
+    );
     const maxDeathAction = Math.floor(actionsToSimulate * 0.95);
+    
+    // If protection lasts too long, plant survives
+    if (minDeathAction >= maxDeathAction) {
+      return null; // Plant survives
+    }
+    
     const deathRange = maxDeathAction - minDeathAction;
     
     return minDeathAction + (plantStateHash % deathRange);
