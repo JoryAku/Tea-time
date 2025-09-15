@@ -133,10 +133,14 @@ class Timeline {
     
     this.plantOutcomes.forEach((outcome, plantId) => {
       if (!outcome.willSurvive) {
+        // Get the actual weather event that will cause death
+        const deathEvent = this.getWeatherAtAction(outcome.deathAction);
+        const actualCause = deathEvent ? deathEvent.weather : outcome.deathCause;
+        
         deaths.push({
           plantId: plantId,
           deathAction: outcome.deathAction,
-          cause: outcome.deathCause,
+          cause: actualCause, // Use actual weather event
           season: this._getSeasonForAction(outcome.deathAction)
         });
       }
@@ -164,8 +168,8 @@ class Timeline {
     const stageDef = plant.definition.states[plant.state];
     const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
-    // Calculate base survival probability - lower base rate for more realistic outcomes
-    let survivalChance = 65; // Reduced from 85% to 65%
+    // Calculate base survival probability - balanced for interesting outcomes
+    let survivalChance = 75; // Balanced at 75%
     
     // Reduce survival chance based on vulnerabilities
     vulnerabilities.forEach(vulnerability => {
@@ -179,12 +183,12 @@ class Timeline {
       const currentAge = plant.age || 0;
       const ageRatio = currentAge / plant.lifespan;
       if (ageRatio > 0.8) {
-        survivalChance -= 25; // Increased penalty for elderly plants
+        survivalChance -= 20; // Penalty for elderly plants
       }
     }
     
-    // Ensure survival chance is within bounds - allow for lower minimum survival
-    survivalChance = Math.max(5, Math.min(90, survivalChance)); // Lowered minimum to 5%
+    // Ensure survival chance is within bounds - reasonable range
+    survivalChance = Math.max(20, Math.min(95, survivalChance)); // 20% minimum, 95% maximum
     
     // Use deterministic but plant-specific random seed
     const plantStateHash = this._calculatePlantStateHash(plant);
@@ -217,8 +221,8 @@ class Timeline {
     });
     
     // Convert to risk reduction (higher probability = higher risk)
-    // Increased the multiplier to make vulnerabilities more impactful
-    return Math.min(40, totalRisk * 1.5); // Increased from 0.8 to 1.5, cap at 40%
+    // Balanced multiplier for reasonable risk
+    return Math.min(25, totalRisk * 1.0); // Reduced from 1.5 to 1.0, cap at 25%
   }
 
   /**
@@ -297,6 +301,14 @@ class Timeline {
           const deathEvent = seasonWeather.find(weather => weather.event === outcome.deathCause);
           if (deathEvent) {
             availableEvents = [deathEvent]; // Force death event
+          } else {
+            // Death cause not available this season, try other vulnerability events
+            const vulnerableEventsThisSeason = seasonWeather.filter(weather => 
+              vulnerableEvents.includes(weather.event)
+            );
+            if (vulnerableEventsThisSeason.length > 0) {
+              availableEvents = [vulnerableEventsThisSeason[0]]; // Pick first available vulnerability
+            }
           }
         } else if (outcome && !outcome.willSurvive) {
           // Before death, avoid vulnerability events
