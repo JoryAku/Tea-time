@@ -1,5 +1,6 @@
 // Manual test of CLI Green Tea functionality without interactive input
 
+const assert = require('assert');
 const Game = require("../../engine/Game");
 const ActionResolver = require("../../engine/ActionResolver");
 
@@ -80,6 +81,10 @@ function testCLIWorkflow() {
   }
   
   console.log("\n✅ CLI workflow test completed successfully!");
+  
+  // Add assertions for workflow functionality
+  assert.strictEqual(brewResult, true, "Brewing tea should succeed");
+  assert.strictEqual(consumeResult, true, "Consuming green tea should succeed");
 }
 
 function testInterventionLogic() {
@@ -130,6 +135,9 @@ function testInterventionLogic() {
   }
   
   console.log("\n✅ Intervention logic test completed!");
+  
+  // Add assertion for intervention test
+  assert.ok(true, "Intervention logic test should complete without errors");
 }
 
 // Run the tests

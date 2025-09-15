@@ -1,5 +1,7 @@
 // Simulates the lifecycle of a single Camellia sinensis seed in the garden.
 
+const assert = require('assert');
+
 const STAGES = [
   'Seed',
   'Seedling',
@@ -46,6 +48,10 @@ function simulateLifecycle() {
   console.log(`Fruiting! New seed produced after ${actions} actions.`);
   const { seasons, years } = actionsToTime(actions);
   console.log(`Total actions: ${actions} | Seasons: ${seasons} | Years: ${years}`);
+  
+  // Add assertions for lifecycle simulation
+  assert.ok(actions > 0, "Plant lifecycle should take some actions to complete");
+  assert.ok(years > 0, "Plant should reach fruiting after at least one year");
 }
 
 simulateLifecycle();

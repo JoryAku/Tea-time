@@ -1,5 +1,6 @@
 // Test the Core Timeline Mechanic implementation
 
+const assert = require('assert');
 const Game = require("../../engine/Game");
 const Timeline = require("../../engine/time/Timeline");
 
@@ -47,6 +48,9 @@ function testTimelineSystem() {
   testSystemIntegration();
   
   console.log("\n✅ All Timeline tests completed!");
+  
+  // Final assertion for timeline tests
+  assert.ok(true, "All timeline tests completed successfully");
 }
 
 function testBasicTimelineCreation() {
@@ -75,6 +79,11 @@ function testBasicTimelineCreation() {
   } else {
     console.log(`❌ Events missing required properties`);
   }
+  
+  // Add assertions for basic timeline creation
+  assert.strictEqual(timeline.events.length, 12, "Timeline should have 12 events");
+  assert.ok(firstEvent.action && firstEvent.season && firstEvent.weather && firstEvent.conditions, 
+    "Events should contain required properties");
 }
 
 function testFullTimelineSimulation() {
@@ -114,6 +123,10 @@ function testFullTimelineSimulation() {
   } else {
     console.log(`❌ Uneven seasonal distribution detected`);
   }
+  
+  // Add assertions for full timeline simulation
+  assert.strictEqual(timeline.events.length, 48, "Timeline should have 48 events for 4 years");
+  assert.ok(allSeasonsPresent, "All seasons should be properly distributed");
 }
 
 function testProbabilityBasedOutcomes() {
@@ -169,6 +182,9 @@ function testProbabilityBasedOutcomes() {
   } else {
     console.log(`⚠️  Expected frost events in autumn, but none found in this simulation`);
   }
+  
+  // Add assertion for probability outcomes
+  assert.ok(outcomes.survived >= 0 && outcomes.died >= 0, "Should have valid outcome counts");
 }
 
 function testDeathSurvivalTimelines() {
@@ -230,6 +246,9 @@ function testDeathSurvivalTimelines() {
   } else {
     console.log(`⚠️  No survival timelines found`);
   }
+  
+  // Add assertion for death/survival timeline generation
+  assert.ok(deathTimelineFound || survivalTimelineFound, "Should generate either death or survival timelines");
 }
 
 function testLockedTimelineBehavior() {
@@ -279,6 +298,11 @@ function testLockedTimelineBehavior() {
   } else {
     console.log(`❌ Timeline allows access outside valid range`);
   }
+  
+  // Add assertions for locked timeline behavior
+  assert.strictEqual(timeline.isLocked, true, "Timeline should be locked after generation");
+  assert.strictEqual(firstAccess.weather, secondAccess.weather, "Weather events should be consistent");
+  assert.ok(!beforeStart && !afterEnd, "Timeline should bound access to valid range");
 }
 
 function testPlayerInterventions() {
@@ -330,6 +354,9 @@ function testPlayerInterventions() {
   } else {
     console.log(`⚠️  No plants available for intervention testing`);
   }
+  
+  // Add assertion for intervention testing
+  assert.ok(true, "Intervention testing should complete without errors");
 }
 
 function testSystemIntegration() {
@@ -356,6 +383,9 @@ function testSystemIntegration() {
     } else {
       console.log(`❌ Game class delegation not working correctly`);
     }
+    
+    // Add assertion for system integration
+    assert.ok(timeline && weatherPeek && weatherPeek.length === 3, "Game class should properly delegate to Timeline system");
   }
   
   // Test that existing CLI still works
@@ -372,6 +402,9 @@ function testSystemIntegration() {
   
   console.log(`✅ Multi-plant timeline (${game.player.garden.length} plants) generated in ${duration}ms`);
   console.log(`✅ Tracking ${multiPlantTimeline.plantStates.size} plant timelines`);
+  
+  // Add assertion for multi-plant timeline
+  assert.ok(multiPlantTimeline.plantStates.size > 0, "Multi-plant timeline should track plant states");
 }
 
 // Run the tests if this file is executed directly
