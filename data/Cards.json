@@ -196,7 +196,7 @@
       "name": "Oolong Tea",
       "type": "Tea",
       "actions": {
-        "consume": { "effect": "apply_effect", "target": { "type": "past_action", "value": 1 } }
+        "consume": { "effect": "future_harvest" }
       }
     },
     {

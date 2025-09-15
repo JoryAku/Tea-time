@@ -65,6 +65,11 @@ class Game {
     return this.engine.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
   }
 
+  // Delegate Oolong Tea consumption method
+  consumeOolongTeaWithPlantSelection(teaCard, plantIndex, harvestChoice = null, cachedTimeline = null) {
+    return this.engine.consumeOolongTeaWithPlantSelection(teaCard, plantIndex, harvestChoice, cachedTimeline);
+  }
+
   // === Timeline System Methods ===
 
   // Create a comprehensive timeline for all garden plants

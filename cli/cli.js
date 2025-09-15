@@ -108,7 +108,7 @@ function promptAction() {
     } else {
       const success = ActionResolver.resolve(action, game);
       if (success === "plant_selection_required") {
-        // Handle Green Tea plant selection
+        // Handle tea plant selection (Green Tea or Oolong Tea)
         const [actionName, zone, idx] = action.split(' ');
         const teaCard = game.player.findCard(zone, parseInt(idx, 10));
         
@@ -117,9 +117,28 @@ function promptAction() {
           return promptAction();
         }
         
-        console.log('\n🔮 Select a plant to see its future:');
+        // Determine tea type and show appropriate message
+        const isGreenTea = teaCard.definition.id === 'green_tea';
+        const isOolongTea = teaCard.definition.id === 'oolong_tea';
+        
+        if (isGreenTea) {
+          console.log('\n🔮 Green Tea: Select a plant to see its future timeline:');
+        } else if (isOolongTea) {
+          console.log('\n🫖 Oolong Tea: Select a plant to harvest from the future:');
+        } else {
+          console.log('\n🍵 Select a plant for tea effect:');
+        }
+        
         game.player.garden.forEach((plant, i) => {
-          console.log(`  ${i}: ${plant.name} [${plant.state}]`);
+          let statusInfo = "";
+          if (plant.state === 'mature') {
+            if (plant.harvestReady) {
+              statusInfo = " - ✅ Ready to harvest now";
+            } else {
+              statusInfo = " - ❌ Not harvestable (wait for spring)";
+            }
+          }
+          console.log(`  ${i}: ${plant.name} [${plant.state}]${statusInfo}`);
         });
         
         rl.question('\nSelect plant index: ', (plantInput) => {
@@ -129,20 +148,95 @@ function promptAction() {
             return promptAction();
           }
           
-          const success = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
-          if (success) {
+          let consumptionSuccess = false;
+          
+          if (isGreenTea) {
+            consumptionSuccess = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
+            if (consumptionSuccess) {
+              // After Green Tea consumption, offer intervention options
+              promptIntervention();
+            }
+          } else if (isOolongTea) {
+            const consumptionResult = game.consumeOolongTeaWithPlantSelection(teaCard, plantIndex);
+            
+            if (consumptionResult.success && consumptionResult.requiresSelection) {
+              // Handle harvest selection
+              const opportunities = consumptionResult.harvestOpportunities;
+              
+              if (opportunities.length === 0) {
+                console.log('❌ No harvest opportunities available.');
+                return promptAction();
+              }
+              
+              console.log('\n🎯 === SELECT HARVEST TO PULL INTO PRESENT ===');
+              console.log('Choose which harvest opportunity to take:');
+              
+              opportunities.forEach((opportunity, index) => {
+                const yearsFromNow = Math.ceil(opportunity.action / 12);
+                console.log(`  ${index}: Action ${opportunity.action} (Year ${yearsFromNow}, ${opportunity.season}) - Weather: ${opportunity.weather}`);
+              });
+              
+              rl.question('\nSelect harvest index (or "cancel" to abort): ', (harvestInput) => {
+                const trimmedInput = harvestInput.trim().toLowerCase();
+                
+                if (trimmedInput === 'cancel') {
+                  console.log('🚫 Oolong Tea consumption cancelled.');
+                  return promptAction();
+                }
+                
+                const harvestIndex = parseInt(trimmedInput, 10);
+                if (isNaN(harvestIndex) || harvestIndex < 0 || harvestIndex >= opportunities.length) {
+                  console.log('❌ Invalid harvest selection.');
+                  return promptAction();
+                }
+                
+                // Execute the selected harvest
+                const finalResult = game.consumeOolongTeaWithPlantSelection(
+                  consumptionResult.teaCard, 
+                  consumptionResult.plantIndex, 
+                  harvestIndex,
+                  {
+                    success: true,
+                    harvestOpportunities: consumptionResult.harvestOpportunities,
+                    deathInfo: consumptionResult.deathInfo,
+                    timeline: consumptionResult.timeline
+                  }
+                );
+                
+                if (finalResult.success) {
+                  console.log('✅ Harvest successfully pulled from the future!');
+                  consumptionSuccess = true;
+                  game.player.actionsLeft -= 1;
+                  game.triggerWeather();
+                } else {
+                  console.log(`❌ Harvest execution failed: ${finalResult.message}`);
+                }
+                
+                if (game.player.actionsLeft <= 0) {
+                  game.endSeasonProcessing();
+                }
+                
+                return promptAction();
+              });
+              return;
+            } else {
+              consumptionSuccess = consumptionResult.success;
+            }
+          } else {
+            // Fallback for other tea types
+            consumptionSuccess = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
+          }
+          
+          if (consumptionSuccess) {
             game.player.actionsLeft -= 1;
             game.triggerWeather();
-            
-            // After Green Tea consumption, offer intervention options
-            promptIntervention();
           }
           
           if (game.player.actionsLeft <= 0) {
             game.endSeasonProcessing();
           }
           
-          return;
+          return promptAction();
         });
         return;
       } else if (success) {
