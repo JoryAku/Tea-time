@@ -122,13 +122,16 @@ function promptAction() {
           if (success) {
             game.player.actionsLeft -= 1;
             game.triggerWeather();
+            
+            // After Green Tea consumption, offer intervention options
+            promptIntervention();
           }
           
           if (game.player.actionsLeft <= 0) {
             game.endSeasonProcessing();
           }
           
-          return promptAction();
+          return;
         });
         return;
       } else if (success) {
@@ -143,6 +146,84 @@ function promptAction() {
     }
     // Continue
     return promptAction();
+  });
+}
+
+function promptIntervention() {
+  console.log('\n🛡️ INTERVENTION OPTIONS:');
+  console.log('Would you like to apply protective actions to change the timeline?');
+  console.log('  0: Continue with normal game (no intervention)');
+  
+  if (game.player.garden.length > 0) {
+    game.player.garden.forEach((plant, idx) => {
+      const actions = plant.getActions();
+      let interventions = [];
+      
+      if (actions.water) {
+        interventions.push(`water (protect against drought)`);
+      }
+      if (actions.shelter) {
+        interventions.push(`shelter (protect against frost)`);
+      }
+      
+      if (interventions.length > 0) {
+        console.log(`  Plant ${idx} (${plant.name}): ${interventions.join(', ')}`);
+      }
+    });
+  }
+  
+  rl.question('\nApply intervention? (format: "plantIndex actionType" or "0" to continue): ', (input) => {
+    const trimmedInput = input.trim();
+    
+    if (trimmedInput === '0') {
+      return promptAction();
+    }
+    
+    const parts = trimmedInput.split(' ');
+    if (parts.length !== 2) {
+      console.log('❌ Invalid format. Use "plantIndex actionType" (e.g., "0 water") or "0" to continue.');
+      return promptIntervention();
+    }
+    
+    const plantIndex = parseInt(parts[0], 10);
+    const actionType = parts[1];
+    
+    if (isNaN(plantIndex) || plantIndex < 0 || plantIndex >= game.player.garden.length) {
+      console.log('❌ Invalid plant index.');
+      return promptIntervention();
+    }
+    
+    if (actionType !== 'water' && actionType !== 'shelter') {
+      console.log('❌ Invalid action type. Use "water" or "shelter".');
+      return promptIntervention();
+    }
+    
+    // Check if player has enough actions
+    if (game.player.actionsLeft <= 0) {
+      console.log('❌ No actions left to apply interventions.');
+      return promptAction();
+    }
+    
+    // Apply the intervention
+    const result = game.engine.applyProtectiveIntervention(plantIndex, actionType);
+    if (result.success) {
+      game.player.actionsLeft -= 1;
+      game.triggerWeather();
+      
+      if (game.player.actionsLeft <= 0) {
+        game.endSeasonProcessing();
+      }
+      
+      // Ask if they want to apply more interventions
+      if (game.player.actionsLeft > 0) {
+        promptIntervention();
+      } else {
+        promptAction();
+      }
+    } else {
+      console.log(`❌ ${result.message}`);
+      promptIntervention();
+    }
   });
 }
 

@@ -7,7 +7,7 @@ class PlantManager {
   }
 
   // Apply weather event to a single plant
-  applyWeatherToPlant(card, event, conditions) {
+  applyWeatherToPlant(card, event, conditions, suppressLogging = false) {
     const stageDef = card.definition.states[card.state];
     if (!stageDef) return;
 
@@ -22,17 +22,23 @@ class PlantManager {
       if (v.event === event) {
         // IMMUNITY: If plant has 'water' condition, immune to 'drought' vulnerability
         if (event === 'drought' && card.activeConditions['water']) {
-          console.log(`💧 ${card.name} is immune to drought due to water condition.`);
+          if (!suppressLogging) {
+            console.log(`💧 ${card.name} is immune to drought due to water condition.`);
+          }
           continue;
         }
         // IMMUNITY: If plant has 'sunlight' condition, immune to 'frost' vulnerability
         if (event === 'frost' && card.activeConditions['sunlight']) {
-          console.log(`☀️ ${card.name} is immune to frost due to sunlight condition.`);
+          if (!suppressLogging) {
+            console.log(`☀️ ${card.name} is immune to frost due to sunlight condition.`);
+          }
           continue;
         }
         // Any vulnerability met should send plant to 'dead' state
         card.state = "dead";
-        console.log(`☠️ ${card.name} died (was ${stageDef.name || card.state}) due to ${event} (vulnerability met).`);
+        if (!suppressLogging) {
+          console.log(`☠️ ${card.name} died (was ${stageDef.name || card.state}) due to ${event} (vulnerability met).`);
+        }
         return; // stop processing this card
       }
     }

@@ -181,11 +181,11 @@ class TeaTimeEngine {
 
     console.log(`🔮 Drinking Green Tea to see the future of ${plant.name} [${plant.state}]...`);
     
-    // Simulate 48 actions (4 years) into the future
-    const prediction = this.simulatePlantFuture(plant, 48);
+    // Generate comprehensive timeline for 48 actions (4 years)
+    const timeline = this.createTimeline(48);
     
-    // Display the prediction
-    this.displayFuturePrediction(plant, prediction);
+    // Display the comprehensive timeline prediction
+    this.displayTimelinePrediction(plant, timeline, plantIndex);
     
     // Remove the consumed Green Tea
     this.player.removeCardFromCurrentLocation(teaCard);
@@ -193,7 +193,112 @@ class TeaTimeEngine {
     return true;
   }
 
-  // Display the future prediction to the player
+  // Display comprehensive timeline prediction for Green Tea consumption
+  displayTimelinePrediction(plant, timeline, plantIndex) {
+    console.log('\n🔮 === 4-YEAR FUTURE TIMELINE ===');
+    console.log(`Plant: ${plant.name} [${plant.state}] (Garden index: ${plantIndex})`);
+    console.log('Time simulated: 48 actions (4 years)');
+    console.log('Timeline locked with probabilistic weather + vulnerability outcomes');
+    
+    // Get plant-specific data from timeline using the same ID generation as Timeline class
+    const plantId = timeline.getPlantId(plant, plantIndex);
+    
+    // Get death predictions
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    
+    if (plantDeath) {
+      console.log('\n💀 OUTCOME: This plant will DIE!');
+      console.log(`   Death Action: ${plantDeath.deathAction} (${plantDeath.season})`);
+      console.log(`   Exact Cause: ${plantDeath.cause}`);
+      
+      // Show the exact weather event that causes death
+      const deathEvent = timeline.getWeatherAtAction(plantDeath.deathAction);
+      if (deathEvent) {
+        console.log(`   Death Event: ${deathEvent.weather} in ${deathEvent.season}`);
+        console.log(`   Conditions: ${deathEvent.conditions ? deathEvent.conditions.join(', ') : 'none'}`);
+      }
+      
+      console.log('\n💡 PROTECTION OPTIONS:');
+      if (plantDeath.cause === 'drought') {
+        console.log('   → Apply WATER action before the drought');
+        console.log('   → Water protection lasts 6 actions');
+        console.log(`   → Apply by action ${Math.max(1, plantDeath.deathAction - 6)} to be safe`);
+      } else if (plantDeath.cause === 'frost') {
+        console.log('   → Apply SHELTER action before the frost');
+        console.log('   → Shelter protection lasts 6 actions');
+        console.log(`   → Apply by action ${Math.max(1, plantDeath.deathAction - 6)} to be safe`);
+      } else {
+        console.log(`   → No known protection against ${plantDeath.cause}`);
+      }
+    } else {
+      console.log('\n✨ OUTCOME: This plant will SURVIVE the next 4 years!');
+      console.log('   No fatal weather events will affect this plant');
+    }
+    
+    // Show timeline summary by seasons/years
+    console.log('\n📅 TIMELINE SUMMARY:');
+    this._displayTimelineWeatherSummary(timeline);
+    
+    console.log('\n🔄 INTERVENTION SYSTEM:');
+    console.log('   If you apply protective actions in the present, this timeline');
+    console.log('   will be regenerated to show the new outcome.');
+    console.log('   Weather events and history remain the same except for the');
+    console.log('   effect of your intervention.');
+    
+    console.log('\n⚠️  This prediction is now LOCKED and will occur unless you intervene!');
+    console.log('========================================\n');
+  }
+
+  // Helper method to display weather summary organized by years and seasons
+  _displayTimelineWeatherSummary(timeline) {
+    let eventIndex = 0;
+    const currentSeason = this.getCurrentSeason();
+    const actionsPerSeason = this.timeManager.getActionsPerSeason();
+    let remainingActionsInCurrentSeason = this.player.actionsLeft;
+    
+    for (let year = 1; year <= 4; year++) {
+      console.log(`\n   Year ${year}:`);
+      
+      // Start with current season in year 1, then cycle through seasons
+      const seasonOrder = ['spring', 'summer', 'autumn', 'winter'];
+      let startSeasonIndex = year === 1 ? seasonOrder.indexOf(currentSeason) : 0;
+      
+      for (let i = 0; i < 4; i++) {
+        const seasonIndex = (startSeasonIndex + i) % 4;
+        const season = seasonOrder[seasonIndex];
+        const seasonEvents = [];
+        let hasDeathEvent = false;
+        
+        // Determine how many actions this season should have
+        const actionsThisSeason = (year === 1 && i === 0) ? remainingActionsInCurrentSeason : actionsPerSeason;
+        
+        // Collect events for this season
+        for (let j = 0; j < actionsThisSeason && eventIndex < timeline.events.length; j++) {
+          const event = timeline.events[eventIndex];
+          seasonEvents.push(event.weather);
+          
+          // Check if this is a death event
+          const deathPredictions = timeline.getDeathPredictions();
+          if (deathPredictions.some(death => death.deathAction === eventIndex + 1)) {
+            hasDeathEvent = true;
+          }
+          
+          eventIndex++;
+        }
+        
+        if (seasonEvents.length > 0) {
+          let seasonLine = `     ${season}: ${seasonEvents.join(', ')}`;
+          if (hasDeathEvent) {
+            seasonLine += ' ⚠️  DEATH EVENT!';
+          }
+          console.log(seasonLine);
+        }
+      }
+    }
+  }
+
+  // Display the future prediction to the player (kept for backward compatibility)
   displayFuturePrediction(plant, prediction) {
     console.log('\n🔮 === FUTURE VISION ===');
     console.log(`Plant: ${plant.name} [${plant.state}]`);
@@ -354,11 +459,31 @@ class TeaTimeEngine {
     
     // Base survival chance on plant maturity and vulnerabilities
     const stageDef = plantCard.definition.states[plantCard.state];
-    const vulnerabilityCount = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities.length : 0;
+    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
+    
+    // Check if plant has active protections against its vulnerabilities
+    const activeProtections = plantCard.activeConditions || {};
+    let protectedVulnerabilities = 0;
+    
+    vulnerabilities.forEach(vuln => {
+      if (vuln.event === 'drought' && activeProtections['water']) {
+        protectedVulnerabilities++;
+      } else if (vuln.event === 'frost' && activeProtections['sunlight']) {
+        protectedVulnerabilities++;
+      }
+    });
+    
+    // Calculate effective vulnerability count (subtract protected ones)
+    const effectiveVulnerabilityCount = Math.max(0, vulnerabilities.length - protectedVulnerabilities);
     
     // Calculate survival chance (more vulnerable plants have lower survival rates)
     let survivalChance = 85; // Base 85% survival rate (increased from 75%)
-    survivalChance -= (vulnerabilityCount * 10); // -10% per vulnerability (reduced from 15%)
+    survivalChance -= (effectiveVulnerabilityCount * 10); // -10% per unprotected vulnerability
+    
+    // Bonus for having protections
+    if (protectedVulnerabilities > 0) {
+      survivalChance += protectedVulnerabilities * 15; // +15% per protected vulnerability
+    }
     
     // Adjust for plant age if it has lifespan
     if (plantCard.lifespan) {
@@ -370,13 +495,29 @@ class TeaTimeEngine {
     }
     
     // Ensure survival chance is within reasonable bounds
-    survivalChance = Math.max(30, Math.min(90, survivalChance)); // Adjusted bounds
+    survivalChance = Math.max(30, Math.min(95, survivalChance)); // Adjusted bounds
     
     const willSurvive = survivalRoll < survivalChance;
+    let deathAction = null;
+    
+    if (!willSurvive) {
+      deathAction = this.calculateDeathAction(plantCard, actionsToSimulate, plantStateHash);
+      // If death action is null (due to long-lasting protection), plant survives
+      if (deathAction === null) {
+        return {
+          willSurvive: true,
+          deathAction: null,
+          protectedVulnerabilities: protectedVulnerabilities,
+          effectiveVulnerabilities: effectiveVulnerabilityCount
+        };
+      }
+    }
     
     return {
       willSurvive: willSurvive,
-      deathAction: willSurvive ? null : this.calculateDeathAction(plantCard, actionsToSimulate, plantStateHash)
+      deathAction: deathAction,
+      protectedVulnerabilities: protectedVulnerabilities,
+      effectiveVulnerabilities: effectiveVulnerabilityCount
     };
   }
 
@@ -394,9 +535,29 @@ class TeaTimeEngine {
 
   // Calculate when the plant should die (if it's destined to die)
   calculateDeathAction(plantCard, actionsToSimulate, plantStateHash) {
-    // Choose a death action between 60% and 95% of the simulation time
-    const minDeathAction = Math.floor(actionsToSimulate * 0.6);
+    // Check if plant has active protections
+    const activeProtections = plantCard.activeConditions || {};
+    let protectionExpiry = 0;
+    
+    // Find the longest lasting protection
+    Object.values(activeProtections).forEach(duration => {
+      if (duration > protectionExpiry) {
+        protectionExpiry = duration;
+      }
+    });
+    
+    // Death should occur after protections expire
+    const minDeathAction = Math.max(
+      protectionExpiry + 1, // At least 1 action after protection expires
+      Math.floor(actionsToSimulate * 0.6)
+    );
     const maxDeathAction = Math.floor(actionsToSimulate * 0.95);
+    
+    // If protection lasts too long, plant survives
+    if (minDeathAction >= maxDeathAction) {
+      return null; // Plant survives
+    }
+    
     const deathRange = maxDeathAction - minDeathAction;
     
     return minDeathAction + (plantStateHash % deathRange);
@@ -645,6 +806,45 @@ class TeaTimeEngine {
   // === Timeline System ===
 
   /**
+   * Apply a protective action to a plant and regenerate timeline showing the new outcome
+   * @param {number} plantIndex - Index of plant in garden
+   * @param {string} actionType - Type of protection ('water' or 'shelter')
+   * @returns {Object} Result of the intervention
+   */
+  applyProtectiveIntervention(plantIndex, actionType) {
+    const plant = this.player.garden[plantIndex];
+    if (!plant) {
+      return { success: false, message: 'No plant found at that index' };
+    }
+
+    // Apply the protective action immediately
+    const actionDef = plant.getActions()[actionType];
+    if (!actionDef) {
+      return { success: false, message: `${actionType} action not available for this plant` };
+    }
+
+    // Apply protection condition
+    const condition = actionDef.condition;
+    const duration = actionDef.duration || 6;
+    plant.activeConditions = plant.activeConditions || {};
+    plant.activeConditions[condition] = duration;
+
+    console.log(`🛡️ Applied ${condition} protection to ${plant.name} for ${duration} actions.`);
+
+    // Regenerate timeline with the new protection
+    const newTimeline = this.createTimeline(48);
+    
+    console.log('\n🔄 === TIMELINE REGENERATED WITH INTERVENTION ===');
+    this.displayTimelinePrediction(plant, newTimeline, plantIndex);
+
+    return { 
+      success: true, 
+      message: `Protection applied successfully`,
+      timeline: newTimeline
+    };
+  }
+
+  /**
    * Create a comprehensive timeline simulation for all garden plants
    * @param {number} actionsToSimulate - Number of actions to simulate (default 48 = 4 years)
    * @returns {Timeline} Timeline object with locked events and plant outcomes
@@ -658,20 +858,6 @@ class TeaTimeEngine {
     
     // Generate timeline for all plants in garden
     const timelineData = timeline.generateTimeline(this.player.garden, actionsToSimulate);
-    
-    console.log(`📅 Timeline generated for ${timelineData.totalActions} actions`);
-    console.log(`🌱 Simulated ${this.player.garden.length} plants`);
-    
-    // Report death predictions
-    const deathPredictions = timeline.getDeathPredictions();
-    if (deathPredictions.length > 0) {
-      console.log(`⚠️  ${deathPredictions.length} plants predicted to die:`);
-      deathPredictions.forEach(death => {
-        console.log(`   Action ${death.deathAction} (${death.season}): ${death.plantId} - ${death.cause}`);
-      });
-    } else {
-      console.log(`✅ All plants predicted to survive the timeline`);
-    }
     
     return timeline;
   }
