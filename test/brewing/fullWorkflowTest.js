@@ -1,5 +1,6 @@
 // Test the complete workflow from mature plant to harvesting and processing tea
 
+const assert = require('assert');
 const Game = require("../../engine/Game");
 const ActionResolver = require("../../engine/ActionResolver");
 
@@ -22,27 +23,19 @@ function testFullWorkflow() {
   console.log("Step 1: Harvesting tea leaves from mature plant");
   const harvestSuccess = ActionResolver.resolve("harvest garden 0", game);
   console.log("Harvest success:", harvestSuccess);
+  assert.strictEqual(harvestSuccess, true, "Harvest should succeed");
+  assert.ok(game.player.kitchen.length > 0, "Should have tea leaves in kitchen after harvest");
   console.log("Kitchen now contains:", game.player.kitchen.length > 0 ? game.player.kitchen[0].name : "Nothing");
   console.log("Actions left:", game.player.actionsLeft);
   console.log("");
-
-  if (game.player.kitchen.length === 0) {
-    console.log("❌ Harvest failed - no tea leaves in kitchen");
-    return;
-  }
 
   // Step 2: Process raw tea leaves into green tea (fastest path)
-  console.log("Step 2a: Processing into Green Tea (Fix action)");
-  const fixSuccess = ActionResolver.resolve("fix kitchen 0", game);
-  console.log("Fix success:", fixSuccess);
-  console.log("Kitchen now contains:", game.player.kitchen.length > 0 ? game.player.kitchen[0].name : "Nothing");
-  console.log("Actions left:", game.player.actionsLeft);
-  console.log("");
-
-  // Step 3: Brew green tea
-  console.log("Step 3a: Brewing Green Tea");
+  console.log("Step 2a: Brewing Green Tea (already processed)");
+  // The harvested tea is already green tea, so we can brew it directly
   const brewSuccess = ActionResolver.resolve("brew kitchen 0", game);
   console.log("Brew success:", brewSuccess);
+  assert.strictEqual(brewSuccess, true, "Brew action should succeed");
+  assert.ok(game.player.cafe.length > 0, "Should have brewed tea in cafe");
   console.log("Cafe now contains:", game.player.cafe.length > 0 ? game.player.cafe[0].name : "Nothing");
   console.log("Kitchen now contains:", game.player.kitchen.length > 0 ? game.player.kitchen[0].name : "Nothing");
   console.log("Actions left:", game.player.actionsLeft);
@@ -77,7 +70,7 @@ function testFullWorkflow() {
     console.log("Cafe now contains:", game.player.cafe.map(c => c.name).join(", "));
     console.log("Actions left:", game.player.actionsLeft);
   } else {
-    console.log("❌ No tea leaves in kitchen for black tea processing");
+    assert.fail("No tea leaves in kitchen for black tea processing");
   }
   console.log("");
 
@@ -102,21 +95,28 @@ function testFullWorkflow() {
     console.log("Final cafe contains:", game.player.cafe.map(c => c.name).join(", "));
     console.log("Actions left:", game.player.actionsLeft);
   } else {
-    console.log("❌ No tea leaves in kitchen for oolong tea processing");
+    assert.fail("No tea leaves in kitchen for oolong tea processing");
   }
   console.log("");
 
   console.log("✅ Full workflow test completed!");
   console.log("Total teas produced:", game.player.cafe.length);
+  assert.ok(game.player.cafe.length >= 1, "Should have produced at least 1 tea");
   console.log("Tea types:", game.player.cafe.map(c => c.name).join(", "));
   
   // Test tea consumption
   console.log("\n--- Testing Tea Consumption ---");
-  if (game.player.cafe.length > 0) {
-    console.log("Consuming Green Tea for weather prediction:");
-    ActionResolver.resolve("consume cafe 0", game);
-    console.log("Remaining teas in cafe:", game.player.cafe.map(c => c.name).join(", "));
-  }
+  assert.ok(game.player.cafe.length > 0, "Should have tea to consume");
+  console.log("Consuming Green Tea for weather prediction:");
+  
+  // Use the consumeGreenTeaWithPlantSelection method as in other tests
+  const teaCard = game.player.cafe[0];
+  const plantIndex = 0; // Select the first plant
+  const consumeResult = game.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
+  assert.strictEqual(consumeResult, true, "Tea consumption should succeed");
+  console.log("Remaining teas in cafe:", game.player.cafe.map(c => c.name).join(", "));
+  
+  console.log("✅ Full workflow test passed!");
 }
 
 testFullWorkflow();
