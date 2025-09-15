@@ -12,6 +12,8 @@ function testFullWorkflow() {
 
   // Create a mature tea plant (normally would take 36 actions to grow)
   const maturePlant = game.createCard('tea_plant', 'mature');
+  // Set harvest readiness based on current season (spring by default)
+  maturePlant.harvestReady = (game.currentSeason === 'spring');
   game.player.garden[0] = maturePlant; // Replace the seedling with mature plant
 
   console.log("Starting setup:");
@@ -21,11 +23,13 @@ function testFullWorkflow() {
 
   // Step 1: Harvest tea leaves from mature plant
   console.log("Step 1: Harvesting tea leaves from mature plant");
+  console.log("Harvest ready:", maturePlant.harvestReady);
   const harvestSuccess = ActionResolver.resolve("harvest garden 0", game);
   console.log("Harvest success:", harvestSuccess);
   assert.strictEqual(harvestSuccess, true, "Harvest should succeed");
   assert.ok(game.player.kitchen.length > 0, "Should have tea leaves in kitchen after harvest");
   console.log("Kitchen now contains:", game.player.kitchen.length > 0 ? game.player.kitchen[0].name : "Nothing");
+  console.log("Plant harvest ready after harvest:", maturePlant.harvestReady);
   console.log("Actions left:", game.player.actionsLeft);
   console.log("");
 
@@ -77,8 +81,16 @@ function testFullWorkflow() {
   // Test oolong tea workflow
   console.log("--- Testing Oolong Tea Workflow ---");
   
+  // Advance to next spring to make plant harvestable again
+  console.log("Advancing to next spring to make plant harvestable again...");
+  
+  // Simulate advancing to next spring by setting harvestReady to true
+  // (In real gameplay, this would happen during season processing)
+  maturePlant.harvestReady = true;
+  
   // Harvest another raw leaf
-  ActionResolver.resolve("harvest garden 0", game);
+  const harvestSuccess2 = ActionResolver.resolve("harvest garden 0", game);
+  console.log("Second harvest success:", harvestSuccess2);
   console.log("Step 2c: Processing into Oolong Tea (Oxidize → Fix)");
   
   if (game.player.kitchen.length > 0) {
