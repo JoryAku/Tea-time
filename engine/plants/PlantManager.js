@@ -58,6 +58,13 @@ class PlantManager {
     const stageDef = card.definition.states[card.state];
     if (!stageDef) return;
 
+    // Update harvest readiness for mature plants based on season
+    if (card.state === 'mature') {
+      card.harvestReady = (currentSeason === 'spring');
+    } else {
+      card.harvestReady = false;
+    }
+
     // Age tracking: increment age at the end of winter (1 year = 4 seasons)
     if (!card._seasonCounter) card._seasonCounter = 0;
     card._seasonCounter++;
@@ -102,6 +109,12 @@ class PlantManager {
             card.state = t.to;
             card.resetStateProgress();
             delete card._transitionThreshold;
+            
+            // Set harvest readiness if transitioning to mature state
+            if (t.to === 'mature') {
+              card.harvestReady = (currentSeason === 'spring');
+            }
+            
             console.log(`➡️ ${card.name} advanced to ${card.state}`);
           }
         }

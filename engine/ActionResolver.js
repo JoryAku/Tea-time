@@ -66,6 +66,12 @@ module.exports = {
           if (actionDef.removeOriginal !== false) {
             game.player.removeCardFromCurrentLocation(card);
           }
+          
+          // If this was a harvest action, set harvestReady to false
+          if (action === 'harvest' && card.state === 'mature') {
+            card.harvestReady = false;
+            console.log(`🌿 ${card.name} has been harvested and is no longer ready to harvest until next spring.`);
+          }
         } catch (err) {
           console.error("Failed to add card:", err.message);
           return false;

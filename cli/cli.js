@@ -28,11 +28,22 @@ function showState() {
           conds.push(`${cond} (${turns} turns left)`);
         }
       }
+      
+      // Add harvest readiness status for mature plants
+      let statusInfo = "";
+      if (card.state === 'mature') {
+        if (card.harvestReady) {
+          statusInfo += " - ✅ Ready to harvest";
+        } else {
+          statusInfo += " - ❌ Not harvestable (wait for spring)";
+        }
+      }
+      
       if (conds.length > 0) {
         const condStr = conds.join(", ");
-        console.log(`  [${idx}] ${card.name} [${card.state}]: ${condStr}`);
+        console.log(`  [${idx}] ${card.name} [${card.state}]: ${condStr}${statusInfo}`);
       } else {
-        console.log(`  [${idx}] ${card.name} [${card.state}]: No active conditions`);
+        console.log(`  [${idx}] ${card.name} [${card.state}]: No active conditions${statusInfo}`);
       }
     });
   } else {

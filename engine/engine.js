@@ -41,6 +41,14 @@ class TeaTimeEngine {
     this.player.garden.push(startSeedling);
     const startGreenTea = this.createCard("tea_leaf_green");
     this.player.kitchen.push(startGreenTea);
+    
+    // Initialize harvest readiness for any mature plants based on current season
+    this.player.garden.forEach(card => {
+      if (card.state === 'mature') {
+        card.harvestReady = (this.getCurrentSeason() === 'spring');
+      }
+    });
+    
     console.log("🌱 Starting garden with a tea plant seedling.");
     console.log("🫖 Starting kitchen with a green tea leaf.");
   }
