@@ -46,20 +46,20 @@ function demonstrateBlackTeaFeatures() {
   
   console.log(`Available states: ${timelineResult.timelineStates.length}`);
   timelineResult.timelineStates.forEach((state, idx) => {
-    const harvestText = state.harvestInfo.isHarvestable ? ` 🌾(${state.harvestInfo.yieldCount} yields)` : '';
-    const validText = state.isValid ? '✅' : '❌';
-    const currentText = state.isCurrent ? ' [CURRENT]' : '';
-    const deadText = state.isDead ? ' 💀' : '';
-    console.log(`  [${idx}] Action ${state.action}: ${state.state} age:${state.age}${harvestText} ${validText}${currentText}${deadText}`);
+    const harvestText = state.harvestReady ? ` 🌾(harvestable)` : '';
+    const validText = state.isAlive ? '✅' : '❌';
+    const currentText = state.actionNumber === 1 ? ' [CURRENT]' : '';
+    const deadText = !state.isAlive ? ' 💀' : '';
+    console.log(`  [${idx}] Action ${state.actionNumber}: ${state.plantState} age:${state.age}${harvestText} ${validText}${currentText}${deadText}`);
   });
 
   // Find interesting states for replacement
   const harvestableStates = timelineResult.timelineStates.filter(state => 
-    state.harvestInfo.isHarvestable && state.isValid && !state.isCurrent
+    state.harvestReady && state.isAlive && state.actionNumber > 1
   );
   
   const olderStates = timelineResult.timelineStates.filter(state => 
-    state.age > maturePlant.age && state.isValid && !state.isCurrent
+    state.age > maturePlant.age && state.isAlive && state.actionNumber > 1
   );
 
   console.log("\n=== STEP 2: REPLACEMENT DEMONSTRATION ===");
@@ -71,17 +71,17 @@ function demonstrateBlackTeaFeatures() {
     
     const targetState = harvestableStates.length > 0 ? harvestableStates[0] : olderStates[0];
     
-    console.log(`🎯 REPLACING plant with state from action ${targetState.action}`);
-    console.log(`   Target: ${targetState.state} age:${targetState.age}`);
-    if (targetState.harvestInfo.isHarvestable) {
-      console.log(`   Harvest yields: ${targetState.harvestInfo.yieldCount} x ${targetState.harvestInfo.baseTarget}`);
+    console.log(`🎯 REPLACING plant with state from action ${targetState.actionNumber}`);
+    console.log(`   Target: ${targetState.plantState} age:${targetState.age}`);
+    if (targetState.harvestReady) {
+      console.log(`   Plant is harvestable at this state`);
     }
     
     const originalState = maturePlant.state;
     const originalAge = maturePlant.age;
     
     // Execute replacement
-    const replacementResult = game.consumeBlackTeaWithPlantSelection(blackTea2, 0, targetState.action);
+    const replacementResult = game.consumeBlackTeaWithPlantSelection(blackTea2, 0, targetState.actionNumber);
     
     console.log(`\n📋 REPLACEMENT RESULT: ${replacementResult.success ? 'SUCCESS' : 'FAILED'}`);
     
