@@ -41,14 +41,16 @@ function testBlackTeaWithMaturePlant() {
   
   console.log(`\nTimeline states available: ${timelineResult.timelineStates.length}`);
   timelineResult.timelineStates.forEach((state, idx) => {
-    const harvestText = state.harvestReady ? ` 🌾(harvestable)` : '';
-    const validText = state.isAlive ? '✅' : '❌';
-    const currentText = state.actionNumber === 1 ? ' [CURRENT]' : '';
-    console.log(`  [${idx}] Action ${state.actionNumber}: ${state.plantState} age:${state.age}${harvestText} ${validText}${currentText}`);
+    const harvestText = state.harvestInfo.isHarvestable ? ` 🌾(${state.harvestInfo.yieldCount})` : '';
+    const validText = state.isValid ? '✅' : '❌';
+    const currentText = state.isCurrent ? ' [CURRENT]' : '';
+    console.log(`  [${idx}] Action ${state.action}: ${state.state} age:${state.age}${harvestText} ${validText}${currentText}`);
   });
 
   // Test state replacement if we have valid future states
-  const validFutureStates = timelineResult.timelineStates.filter(state => state.isAlive && state.actionNumber > 1);
+  const validFutureStates = timelineResult.timelineStates.filter(state => state.isValid && !state.isCurrent);
+  const validFutureStates = timelineResult.timelineStates.filter(state => state.isValid && !state.isCurrent);
+>>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
   
   if (validFutureStates.length > 0) {
     console.log("\nStep 2: Testing plant state replacement");
@@ -58,23 +60,26 @@ function testBlackTeaWithMaturePlant() {
     game.player.cafe.push(blackTea2);
     
     const targetState = validFutureStates[Math.min(1, validFutureStates.length - 1)]; // Pick second state or last if only one
-    console.log(`Replacing plant with state from action ${targetState.actionNumber}: ${targetState.plantState} age:${targetState.age}`);
+    console.log(`Replacing plant with state from action ${targetState.action}: ${targetState.state} age:${targetState.age}`);
     
     const originalState = maturePlant.state;
     const originalAge = maturePlant.age;
     
     // Execute replacement
-    const replacementResult = game.consumeBlackTeaWithPlantSelection(blackTea2, plantIndex, targetState.actionNumber);
+    const replacementResult = game.consumeBlackTeaWithPlantSelection(blackTea2, plantIndex, targetState.action);
     
     console.log("\nReplacement result:", replacementResult.success ? "SUCCESS" : "FAILED");
     if (replacementResult.success) {
       const updatedPlant = game.player.garden[plantIndex];
       console.log(`State change: [${originalState}] age:${originalAge} -> [${updatedPlant.state}] age:${updatedPlant.age}`);
       
-      // Verify replacement succeeded
-      assert.ok(replacementResult.success, "Replacement should succeed");
+      // Verify change occurred
+      assert.ok(
+        updatedPlant.state !== originalState || updatedPlant.age !== originalAge,
+        "Plant state should have changed"
+      );
       
-      console.log("✅ Plant state replacement completed!");
+      console.log("✅ Plant state successfully replaced!");
     } else {
       console.log("❌ Replacement failed:", replacementResult.message);
     }
@@ -109,25 +114,28 @@ function testTimelineUpdateConsistency() {
   
   const plantId = plant.uniqueId;
   console.log(`Plant ID: ${plantId}`);
+  console.log(`Cached timelines: ${game.engine.plantTimelines.size}`);
   
   // Apply protection to change plant state
   console.log("\nStep 2: Apply protection to change plant state");
   plant.activeConditions = plant.activeConditions || {};
   plant.activeConditions['water'] = 10; // Long-lasting water protection
   
-  // Create second timeline - should use same rolling timeline but show different outcomes due to protection
+  // Create second timeline - should update existing one
   const blackTea2 = game.createCard("black_tea");
   game.player.cafe.push(blackTea2);
   
-  console.log("Step 3: Create timeline after plant state change (should show updated outcomes)");
+  console.log("Step 3: Create timeline after plant state change (should update cache)");
   const result2 = game.consumeBlackTeaWithPlantSelection(blackTea2, 0, null);
   assert.strictEqual(result2.success, true, "Second timeline should succeed");
   
-  // With rolling timeline, we should get a different outcome due to the protection
-  const hasProtection = plant.activeConditions && plant.activeConditions['water'] > 0;
-  assert.ok(hasProtection, "Plant should have water protection");
+  console.log(`Cached timelines after update: ${game.engine.plantTimelines.size}`);
   
-  console.log("✅ Rolling timeline correctly shows updated outcomes based on current plant state!");
+  // Should still have the same timeline cached, but updated
+  assert.ok(game.engine.plantTimelines.has(plantId), "Timeline should still be cached");
+  assert.strictEqual(game.engine.plantTimelines.size, 1, "Should only have one cached timeline");
+  
+  console.log("✅ Timeline updates correctly - no duplicates created!");
 }
 
 function testPlantIdAssignment() {

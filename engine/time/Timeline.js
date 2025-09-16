@@ -168,10 +168,23 @@ class Timeline {
   }
 
   /**
+<<<<<<< HEAD
    * Determine survival outcome using percentage-based probabilities
    * @private
    */
   _determinePlantSurvivalOutcome(plant, actionsToSimulate) {
+=======
+   * Determine survival outcome based on predetermined weather forecast
+   * @private
+   */
+  _determinePlantSurvivalOutcome(plant, actionsToSimulate) {
+    // If engine has predetermined forecast, use that for accurate prediction
+    if (this.engine.weatherForecastLocked && this.engine.weatherSystem.predeterminedForecast) {
+      return this._determineOutcomeFromForecast(plant, actionsToSimulate);
+    }
+    
+    // Fallback: use probability-based prediction (legacy behavior)
+>>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
     const stageDef = plant.definition.states[plant.state];
     const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
@@ -275,6 +288,66 @@ class Timeline {
   }
 
   /**
+<<<<<<< HEAD
+=======
+   * Determine outcome based on predetermined weather forecast
+   * @private
+   */
+  _determineOutcomeFromForecast(plant, actionsToSimulate) {
+    const stageDef = plant.definition.states[plant.state];
+    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
+    const vulnerableEvents = vulnerabilities.map(v => v.event);
+    const activeProtections = plant.activeConditions || {};
+    
+    // Simulate protection durations
+    const protectionState = { ...activeProtections };
+    
+    // Check each action in the forecast for death conditions
+    for (let action = 1; action <= actionsToSimulate; action++) {
+      // Tick down protections
+      Object.keys(protectionState).forEach(condition => {
+        protectionState[condition]--;
+        if (protectionState[condition] <= 0) {
+          delete protectionState[condition];
+        }
+      });
+      
+      // Get weather event for this action
+      const weatherEvent = this.engine.weatherSystem.predeterminedForecast[action - 1];
+      
+      // Check if this weather event is vulnerable for the plant
+      if (vulnerableEvents.includes(weatherEvent)) {
+        // Check if plant is protected against this vulnerability
+        let isProtected = false;
+        if (weatherEvent === 'drought' && protectionState['water']) {
+          isProtected = true;
+        } else if (weatherEvent === 'frost' && protectionState['sunlight']) {
+          isProtected = true;
+        }
+        
+        if (!isProtected) {
+          // Plant will die on this action
+          return {
+            willSurvive: false,
+            deathAction: action,
+            deathCause: weatherEvent,
+            protectedVulnerabilities: 0
+          };
+        }
+      }
+    }
+    
+    // Plant survives the entire forecast
+    return {
+      willSurvive: true,
+      deathAction: null,
+      deathCause: null,
+      protectedVulnerabilities: Object.keys(activeProtections).length
+    };
+  }
+
+  /**
+>>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
    * Calculate seasonal vulnerability risk percentage
    * @private
    */
@@ -401,10 +474,25 @@ class Timeline {
   }
 
   /**
+<<<<<<< HEAD
    * Generate weather events ensuring plant outcomes are achieved
    * @private
    */
   _generateTimelineWeatherEvents(plants, actionsToSimulate) {
+=======
+   * Generate weather events using predetermined forecast from engine
+   * @private
+   */
+  _generateTimelineWeatherEvents(plants, actionsToSimulate) {
+    // Use predetermined forecast from engine if available
+    if (this.engine.weatherForecastLocked && this.engine.weatherSystem.predeterminedForecast) {
+      const forecast = this.engine.weatherSystem.predeterminedForecast.slice(0, actionsToSimulate);
+      console.log(`📋 Using predetermined weather forecast (${forecast.length} actions)`);
+      return forecast;
+    }
+    
+    // Fallback: generate outcome-driven forecast (legacy behavior)
+>>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
     const forecast = [];
     
     for (let action = 1; action <= actionsToSimulate; action++) {

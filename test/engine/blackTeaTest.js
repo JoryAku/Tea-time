@@ -66,17 +66,17 @@ function testBlackTeaTimelineAndReplacement() {
   
   console.log(`Available states: ${timelineResult.timelineStates.length}`);
   timelineResult.timelineStates.forEach((state, idx) => {
-    console.log(`  [${idx}] Action ${state.actionNumber}: ${state.plantState} (age: ${state.age}) - ${state.isAlive ? 'VALID' : 'INVALID'}`);
+    console.log(`  [${idx}] Action ${state.action}: ${state.state} (age: ${state.age}) - ${state.isValid ? 'VALID' : 'INVALID'}`);
   });
 
   // Test plant state replacement
   console.log("\nStep 4: Testing plant state replacement");
   
   // Find a valid future state to replace with
-  const validStates = timelineResult.timelineStates.filter(state => state.isAlive && state.actionNumber > 1);
+  const validStates = timelineResult.timelineStates.filter(state => state.isValid && !state.isCurrent);
   if (validStates.length > 0) {
     const targetState = validStates[0]; // Use first valid future state
-    console.log(`Attempting to replace plant with state from action ${targetState.actionNumber}: ${targetState.plantState}`);
+    console.log(`Attempting to replace plant with state from action ${targetState.action}: ${targetState.state}`);
     
     // Store original plant state
     const originalPlant = game.player.garden[plantIndex];
@@ -84,7 +84,7 @@ function testBlackTeaTimelineAndReplacement() {
     const originalAge = originalPlant.age || 0;
     
     // Execute the replacement
-    const replacementResult = game.consumeBlackTeaWithPlantSelection(blackTeaCard, plantIndex, targetState.actionNumber);
+    const replacementResult = game.consumeBlackTeaWithPlantSelection(blackTeaCard, plantIndex, targetState.action);
     console.log("\nReplacement result:", replacementResult.success ? "SUCCESS" : "FAILED");
     assert.strictEqual(replacementResult.success, true, "Plant replacement should succeed");
     
@@ -133,25 +133,15 @@ function testBlackTeaTimelineConsistency() {
   const timelineResult = game.consumeBlackTeaWithPlantSelection(blackTea, plantIndex);
   
   assert.strictEqual(timelineResult.success, true, "Black Tea timeline viewing should succeed");
-  assert.ok(timelineResult.progression || timelineResult.rollingForecast, "Should have progression or rolling forecast data");
+  assert.ok(timelineResult.timeline, "Should have timeline data");
   
   // Verify plant has unique ID assigned
   assert.ok(plant.uniqueId, "Plant should have unique ID");
   console.log(`Plant ID: ${plant.uniqueId}`);
   
-  // With rolling timeline, there's no traditional cache - the timeline is always live
-  // Check that both tea powers are using the same rolling timeline
-  const greenTeaForecast = game.engine.getRollingWeatherForecast(12);
-  const blackTeaForecast = game.engine.getFullRollingTimeline().slice(0, 12);
-  
-  // Verify the weather events match between the two
-  const weatherMatches = greenTeaForecast.every((event, index) => 
-    event.weather === blackTeaForecast[index].weather && 
-    event.season === blackTeaForecast[index].season
-  );
-  
-  assert.ok(weatherMatches, "Weather events should match between tea powers");
-  console.log("✅ Rolling timeline is consistently accessed by both tea powers");
+  // Verify timeline is cached
+  assert.ok(game.engine.plantTimelines.has(plant.uniqueId), "Timeline should be cached");
+  console.log("Timeline successfully cached for consistency");
 
   console.log("\n✅ Timeline consistency test passed!");
 }
