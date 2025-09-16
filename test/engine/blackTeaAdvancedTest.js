@@ -49,8 +49,6 @@ function testBlackTeaWithMaturePlant() {
 
   // Test state replacement if we have valid future states
   const validFutureStates = timelineResult.timelineStates.filter(state => state.isValid && !state.isCurrent);
-  const validFutureStates = timelineResult.timelineStates.filter(state => state.isValid && !state.isCurrent);
->>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
   
   if (validFutureStates.length > 0) {
     console.log("\nStep 2: Testing plant state replacement");

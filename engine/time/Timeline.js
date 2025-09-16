@@ -168,12 +168,6 @@ class Timeline {
   }
 
   /**
-<<<<<<< HEAD
-   * Determine survival outcome using percentage-based probabilities
-   * @private
-   */
-  _determinePlantSurvivalOutcome(plant, actionsToSimulate) {
-=======
    * Determine survival outcome based on predetermined weather forecast
    * @private
    */
@@ -184,7 +178,6 @@ class Timeline {
     }
     
     // Fallback: use probability-based prediction (legacy behavior)
->>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
     const stageDef = plant.definition.states[plant.state];
     const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
     
@@ -288,8 +281,6 @@ class Timeline {
   }
 
   /**
-<<<<<<< HEAD
-=======
    * Determine outcome based on predetermined weather forecast
    * @private
    */
@@ -347,7 +338,6 @@ class Timeline {
   }
 
   /**
->>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
    * Calculate seasonal vulnerability risk percentage
    * @private
    */
@@ -474,12 +464,6 @@ class Timeline {
   }
 
   /**
-<<<<<<< HEAD
-   * Generate weather events ensuring plant outcomes are achieved
-   * @private
-   */
-  _generateTimelineWeatherEvents(plants, actionsToSimulate) {
-=======
    * Generate weather events using predetermined forecast from engine
    * @private
    */
@@ -492,7 +476,6 @@ class Timeline {
     }
     
     // Fallback: generate outcome-driven forecast (legacy behavior)
->>>>>>> bbe9e832edb95afd1bc6e342517513951739660d
     const forecast = [];
     
     for (let action = 1; action <= actionsToSimulate; action++) {

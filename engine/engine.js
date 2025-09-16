@@ -1709,44 +1709,6 @@ class TeaTimeEngine {
       isLocked: timeline.isLocked
     };
   }
-<<<<<<< HEAD
-
-  // === Rolling Weather Timeline Methods ===
-
-  /**
-   * Get the current weather event from rolling timeline (for immediate application)
-   * @returns {Object} Current weather event
-   */
-  getCurrentWeatherEvent() {
-    return this.rollingWeatherTimeline.getCurrentWeatherEvent();
-  }
-
-  /**
-   * Get rolling weather forecast (for Green Tea)
-   * @param {number} count - Number of events to retrieve (default 48 for 4 years)
-   * @returns {Array} Array of weather events
-   */
-  getRollingWeatherForecast(count = 48) {
-    return this.rollingWeatherTimeline.getWeatherForecast(count);
-  }
-
-  /**
-   * Get full rolling timeline (for Oolong Tea)
-   * @returns {Array} Complete 4-year timeline
-   */
-  getFullRollingTimeline() {
-    return this.rollingWeatherTimeline.getFullTimeline();
-  }
-
-  /**
-   * Get weather at specific turn ahead (for Black Tea)
-   * @param {number} turnsAhead - How many turns ahead to look
-   * @returns {Object|null} Weather event or null if out of range
-   */
-  getWeatherAtTurnAhead(turnsAhead) {
-    return this.rollingWeatherTimeline.getWeatherAtTurn(turnsAhead);
-  }
-
 }
 
 module.exports = TeaTimeEngine;
