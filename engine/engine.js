@@ -3,7 +3,6 @@
 const TimeManager = require('./time/TimeManager');
 const Timeline = require('./time/Timeline');
 const WeatherSystem = require('./weather/WeatherSystem');
-const RollingWeatherTimeline = require('./weather/RollingWeatherTimeline');
 const PlantManager = require('./plants/PlantManager');
 const ActionManager = require('./actions/ActionManager');
 const Player = require('./Player');
@@ -28,13 +27,9 @@ class TeaTimeEngine {
     this.plantTimelines = new Map(); // Map of plantId -> cached timeline
     this.nextPlantId = 1; // Counter for unique plant IDs
     
-    // Initialize rolling weather timeline
-    this.rollingWeatherTimeline = new RollingWeatherTimeline(
-      this.weatherSystem,
-      this.timeManager,
-      this.timeManager.getCurrentSeason(),
-      this.player.actionsLeft
-    );
+    // Weather forecast management for predictions
+    this.currentActionNumber = 0; // Track current action in the game
+    this.weatherForecastLocked = false; // Whether weather is predetermined
     
     // Initialize starting deck
     this.initStartingDeck();
@@ -121,8 +116,11 @@ class TeaTimeEngine {
     this.assignPlantId(startSeedling);
     this.player.garden.push(startSeedling);
     const startGreenTea = this.createCard("tea_leaf_green");
+    const startOolongTea = this.createCard("tea_leaf_oolong");
+    const startBlackTea = this.createCard("tea_leaf_black");
     this.player.kitchen.push(startGreenTea);
-    
+    this.player.kitchen.push(startOolongTea);
+    this.player.kitchen.push(startBlackTea);
     // Initialize harvest readiness for any mature plants based on current season
     this.player.garden.forEach(card => {
       if (card.state === 'mature') {
@@ -131,7 +129,7 @@ class TeaTimeEngine {
     });
     
     console.log("🌱 Starting garden with a tea plant seedling.");
-    console.log("🫖 Starting kitchen with a green tea leaf.");
+    console.log("🫖 Starting kitchen with green, oolong, and black tea leaves.");
   }
 
   // Get current game state info
@@ -161,12 +159,12 @@ class TeaTimeEngine {
 
   // Trigger weather event after each action
   triggerWeather() {
-    // Get the next weather event from rolling timeline and advance it
-    const weatherEvent = this.rollingWeatherTimeline.advanceTimeline();
-    console.log(`\n🌦 Weather event: ${weatherEvent.weather} (${weatherEvent.season})`);
-    this.applyWeather(weatherEvent.weather);
+    this.currentActionNumber++;
+    const event = this.weatherSystem.pickWeatherEvent(this.getCurrentSeason(), this.currentActionNumber);
+    console.log(`\n🌦 Weather event: ${event}`);
+    this.applyWeather(event);
     this.progressOxidation();
-    this.checkTeaProcessingFailures(weatherEvent.weather);
+    this.checkTeaProcessingFailures(event);
     // Progress locked predictions from Green Tea
     this.progressLockedPredictions();
     // After weather, tick down all active conditions on all plants
@@ -286,14 +284,24 @@ class TeaTimeEngine {
 
     console.log(`🔮 Drinking Green Tea to see the future of ${plant.name} [${plant.state}]...`);
     
-    // Get rolling weather forecast for plant probability simulation
-    const rollingForecast = this.getRollingWeatherForecast(48);
+    // Generate predetermined weather forecast for next 48 actions
+    if (!this.weatherForecastLocked) {
+      const forecast = this.weatherSystem.getPredeterminedForecast(
+        this.getCurrentSeason(),
+        this.player.actionsLeft,
+        48
+      );
+      this.weatherSystem.setPredeterminedForecast(forecast);
+      this.weatherForecastLocked = true;
+      console.log('\n🔒 Weather forecast LOCKED for next 48 actions based on Green Tea vision.');
+    }
     
-    // Simulate plant outcomes against the rolling forecast
-    const plantPrediction = this.simulatePlantAgainstRollingForecast(plant, rollingForecast);
+    // Ensure plant has unique ID and get/create consistent timeline
+    this.assignPlantId(plant);
+    const timeline = this.getOrCreatePlantTimeline(plant, 48);
     
-    // Display the forecast prediction
-    this.displayRollingTimelinePrediction(plant, plantPrediction, rollingForecast, plantIndex);
+    // Display the comprehensive timeline prediction
+    this.displayTimelinePrediction(plant, timeline, plantIndex);
     
     // Remove the consumed Green Tea
     this.player.removeCardFromCurrentLocation(teaCard);
@@ -301,467 +309,7 @@ class TeaTimeEngine {
     return true;
   }
 
-  /**
-   * Simulate plant outcomes against rolling weather forecast (for Green Tea)
-   * @param {Object} plant - Plant to simulate
-   * @param {Array} rollingForecast - Rolling weather forecast
-   * @returns {Object} Plant prediction results
-   */
-  simulatePlantAgainstRollingForecast(plant, rollingForecast) {
-    const stageDef = plant.definition.states[plant.state];
-    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
-    const activeProtections = plant.activeConditions || {};
-    
-    // Calculate survival probability
-    let survivalChance = 75; // Base survival chance
-    
-    // Check vulnerabilities against the rolling forecast
-    const vulnerableEvents = vulnerabilities.map(v => v.event);
-    let vulnEventCount = 0;
-    let protectedFromVulnEvents = 0;
-    
-    rollingForecast.forEach((event, index) => {
-      if (vulnerableEvents.includes(event.weather)) {
-        vulnEventCount++;
-        
-        // Check if plant is protected during this event
-        const turnsUntilEvent = index + 1;
-        const isProtected = this.isPlantProtectedAtTurn(plant, event.weather, turnsUntilEvent);
-        if (isProtected) {
-          protectedFromVulnEvents++;
-        }
-      }
-    });
-    
-    // Adjust survival based on vulnerability exposure
-    const unprotectedVulnEvents = vulnEventCount - protectedFromVulnEvents;
-    survivalChance -= (unprotectedVulnEvents * 15); // Each unprotected vulnerability event reduces survival by 15%
-    
-    // Bonus for having protections
-    if (protectedFromVulnEvents > 0) {
-      survivalChance += (protectedFromVulnEvents * 10);
-    }
-    
-    // Ensure survival chance is within bounds
-    survivalChance = Math.max(10, Math.min(95, survivalChance));
-    
-    // Determine outcome using plant-specific hash for consistency
-    const plantStateHash = this.calculatePlantStateHash(plant);
-    const survivalRoll = (plantStateHash % 100);
-    const willSurvive = survivalRoll < survivalChance;
-    
-    // If plant will die, find when
-    let deathTurn = null;
-    let deathCause = null;
-    if (!willSurvive) {
-      // Find the first unprotected vulnerability event
-      for (let i = 0; i < rollingForecast.length; i++) {
-        const event = rollingForecast[i];
-        if (vulnerableEvents.includes(event.weather)) {
-          const turnsUntilEvent = i + 1;
-          const isProtected = this.isPlantProtectedAtTurn(plant, event.weather, turnsUntilEvent);
-          if (!isProtected) {
-            deathTurn = turnsUntilEvent;
-            deathCause = event.weather;
-            break;
-          }
-        }
-      }
-    }
-    
-    return {
-      willSurvive,
-      survivalChance,
-      deathTurn,
-      deathCause,
-      vulnEventCount,
-      protectedFromVulnEvents,
-      unprotectedVulnEvents
-    };
-  }
-
-  /**
-   * Check if plant is protected from a specific weather event at a given turn
-   * @param {Object} plant - Plant to check
-   * @param {string} weatherEvent - Weather event to check protection against
-   * @param {number} turn - Turn number to check
-   * @returns {boolean} Whether plant is protected
-   */
-  isPlantProtectedAtTurn(plant, weatherEvent, turn) {
-    const activeProtections = plant.activeConditions || {};
-    
-    if (weatherEvent === 'drought' && activeProtections['water']) {
-      return activeProtections['water'] >= turn;
-    }
-    if (weatherEvent === 'frost' && activeProtections['sunlight']) {
-      return activeProtections['sunlight'] >= turn;
-    }
-    
-    return false;
-  }
-
-  /**
-   * Display rolling timeline prediction for Green Tea
-   * @param {Object} plant - Plant being predicted
-   * @param {Object} prediction - Prediction results
-   * @param {Array} rollingForecast - Rolling weather forecast
-   * @param {number} plantIndex - Plant index in garden
-   */
-  displayRollingTimelinePrediction(plant, prediction, rollingForecast, plantIndex) {
-    console.log('\n🔮 === 4-YEAR ROLLING WEATHER FORECAST ===');
-    console.log(`Plant: ${plant.name} [${plant.state}] (Garden index: ${plantIndex})`);
-    console.log('Forecast source: Rolling weather timeline (always up-to-date)');
-    console.log(`Vulnerability events in forecast: ${prediction.vulnEventCount}`);
-    console.log(`Protected from events: ${prediction.protectedFromVulnEvents}`);
-    console.log(`Unprotected vulnerability events: ${prediction.unprotectedVulnEvents}`);
-    
-    if (prediction.willSurvive) {
-      console.log('\n✅ OUTCOME: This plant will SURVIVE the next 4 years!');
-      console.log(`   Survival probability: ${prediction.survivalChance}%`);
-    } else {
-      console.log('\n💀 OUTCOME: This plant will DIE!');
-      console.log(`   Death will occur at turn: ${prediction.deathTurn}`);
-      console.log(`   Death cause: ${prediction.deathCause}`);
-      console.log(`   Survival probability was: ${prediction.survivalChance}%`);
-    }
-    
-    console.log('\n📅 Next 12 weather events:');
-    rollingForecast.slice(0, 12).forEach((event, index) => {
-      const turnNum = index + 1;
-      const isVulnerable = this.isEventVulnerableForPlant(plant, event.weather);
-      const isProtected = this.isPlantProtectedAtTurn(plant, event.weather, turnNum);
-      
-      let marker = '';
-      if (isVulnerable && !isProtected) {
-        marker = ' ⚠️  DANGEROUS';
-      } else if (isVulnerable && isProtected) {
-        marker = ' 🛡️  PROTECTED';
-      }
-      
-      console.log(`   Turn ${turnNum}: ${event.weather} (${event.season})${marker}`);
-    });
-    
-    console.log('\n🔮 Green Tea power: Revealing rolling forecast outcomes');
-  }
-
-  /**
-   * Simulate harvest timeline using rolling weather forecast (for Oolong Tea)
-   * @param {Object} plantCard - Plant to simulate
-   * @returns {Object} Harvest timeline results
-   */
-  simulateHarvestTimelineFromRollingForecast(plantCard) {
-    console.log('\n🫖 === OOLONG TEA: 4-YEAR ROLLING HARVEST TIMELINE ===');
-    console.log(`Simulating harvest timeline for: ${plantCard.name} [${plantCard.state}]`);
-    console.log('Using live rolling weather forecast - always up-to-date!');
-    
-    // Check if plant is already harvestable
-    if (plantCard.state === 'mature' && plantCard.harvestReady) {
-      console.log('🌿 Plant is already ready to harvest in the present!');
-      console.log('⚠️  No future simulation needed - you can harvest now.');
-      return { 
-        success: false, 
-        message: 'Plant is already harvestable in present',
-        canHarvestNow: true 
-      };
-    }
-
-    // Get rolling weather forecast
-    const rollingForecast = this.getFullRollingTimeline();
-    
-    // Simulate plant progression through the rolling forecast
-    const plantProgression = this.simulatePlantProgressionThroughForecast(plantCard, rollingForecast);
-    
-    // Find harvest opportunities
-    const harvestOpportunities = this.findHarvestOpportunitiesInProgression(plantProgression);
-    
-    if (harvestOpportunities.length === 0) {
-      console.log('💀 NO HARVEST OPPORTUNITIES: No future harvests found in 4-year rolling timeline.');
-      if (plantProgression.deathInfo) {
-        const death = plantProgression.deathInfo;
-        console.log(`   Reason: Plant will die at turn ${death.turn} from ${death.cause}`);
-        console.log(`   Death occurs in ${death.season} before reaching harvestable state`);
-      } else {
-        console.log('   Reason: Plant never reaches harvestable maturity within 4 years');
-      }
-      return { 
-        success: false, 
-        message: 'No harvest opportunities found',
-        deathInfo: plantProgression.deathInfo,
-        harvestOpportunities: []
-      };
-    }
-    
-    // Display the rolling timeline with harvest opportunities
-    this.displayRollingHarvestTimeline(rollingForecast, harvestOpportunities, plantProgression.deathInfo);
-    
-    return {
-      success: true,
-      harvestOpportunities: harvestOpportunities,
-      deathInfo: plantProgression.deathInfo,
-      timeline: rollingForecast
-    };
-  }
-
-  /**
-   * Simulate plant progression through rolling weather forecast
-   * @param {Object} plantCard - Plant to simulate
-   * @param {Array} rollingForecast - Rolling weather forecast
-   * @returns {Object} Plant progression results
-   */
-  simulatePlantProgressionThroughForecast(plantCard, rollingForecast) {
-    // Create a copy of the plant for simulation
-    const Card = require('./Card');
-    const simulatedPlant = new Card(plantCard.definition, plantCard.state);
-    simulatedPlant.stateProgress = plantCard.stateProgress || 0;
-    simulatedPlant.age = plantCard.age || 0;
-    simulatedPlant.lifespan = plantCard.lifespan;
-    simulatedPlant._seasonCounter = plantCard._seasonCounter || 0;
-    simulatedPlant._transitionThreshold = plantCard._transitionThreshold;
-    simulatedPlant.activeConditions = plantCard.activeConditions ? {...plantCard.activeConditions} : {};
-    
-    const progression = [];
-    let deathInfo = null;
-    let currentSeason = this.timeManager.getCurrentSeason();
-    let actionsLeftInSeason = this.player.actionsLeft;
-    
-    // Simulate each turn in the forecast
-    for (let turn = 1; turn <= rollingForecast.length; turn++) {
-      const weatherEvent = rollingForecast[turn - 1];
-      
-      // Record current state before processing this turn
-      progression.push({
-        turn: turn,
-        season: weatherEvent.season,
-        weather: weatherEvent.weather,
-        plantState: simulatedPlant.state,
-        plantAge: simulatedPlant.age || 0,
-        stateProgress: simulatedPlant.stateProgress || 0,
-        harvestReady: simulatedPlant.harvestReady || false,
-        isAlive: simulatedPlant.state !== 'dead'
-      });
-      
-      // Apply weather to plant
-      this.plantManager.applyWeatherToPlant(simulatedPlant, weatherEvent.weather, weatherEvent.conditions, true);
-      
-      // Check for death
-      if (simulatedPlant.state === 'dead' && !deathInfo) {
-        deathInfo = {
-          turn: turn,
-          season: weatherEvent.season,
-          cause: weatherEvent.weather
-        };
-        break;
-      }
-      
-      // Handle season transitions (every 3 actions)
-      actionsLeftInSeason--;
-      if (actionsLeftInSeason <= 0) {
-        currentSeason = this.getNextSeasonInCycle(currentSeason);
-        actionsLeftInSeason = this.timeManager.getActionsPerSeason();
-        
-        // Process season-end progression
-        this.plantManager.processPlantProgression(simulatedPlant, currentSeason);
-      }
-    }
-    
-    return {
-      progression: progression,
-      deathInfo: deathInfo,
-      finalState: simulatedPlant.state
-    };
-  }
-
-  /**
-   * Find harvest opportunities in plant progression
-   * @param {Object} plantProgression - Plant progression data
-   * @returns {Array} Harvest opportunities
-   */
-  findHarvestOpportunitiesInProgression(plantProgression) {
-    const opportunities = [];
-    
-    plantProgression.progression.forEach((step, index) => {
-      if (step.harvestReady && step.isAlive) {
-        opportunities.push({
-          turn: step.turn,
-          season: step.season,
-          weather: step.weather,
-          plantState: step.plantState,
-          plantAge: step.plantAge,
-          harvestIndex: opportunities.length
-        });
-      }
-    });
-    
-    return opportunities;
-  }
-
-  /**
-   * Display rolling harvest timeline
-   * @param {Array} rollingForecast - Rolling weather forecast
-   * @param {Array} harvestOpportunities - Harvest opportunities
-   * @param {Object} deathInfo - Death information if applicable
-   */
-  displayRollingHarvestTimeline(rollingForecast, harvestOpportunities, deathInfo) {
-    console.log('\n📅 ROLLING HARVEST TIMELINE:');
-    console.log(`Found ${harvestOpportunities.length} harvest opportunities in 4-year rolling forecast:`);
-    
-    harvestOpportunities.forEach((opportunity, index) => {
-      console.log(`\n${index}: Turn ${opportunity.turn} (${opportunity.season})`);
-      console.log(`   Plant State: ${opportunity.plantState}`);
-      console.log(`   Plant Age: ${opportunity.plantAge}`);
-      console.log(`   Weather: ${opportunity.weather}`);
-      console.log(`   🌿 HARVESTABLE - Can pull this harvest to present`);
-    });
-    
-    if (deathInfo) {
-      console.log(`\n💀 Plant death predicted at turn ${deathInfo.turn} (${deathInfo.season}) from ${deathInfo.cause}`);
-      console.log('⚠️  All harvest opportunities must occur before this point');
-    }
-    
-    console.log('\n🫖 Oolong Tea power: Revealing harvest opportunities in rolling timeline');
-  }
-
-  /**
-   * Display Black Tea rolling timeline
-   * @param {Object} plant - Plant being viewed
-   * @param {Object} plantProgression - Plant progression data
-   * @param {Array} rollingForecast - Rolling weather forecast
-   * @param {number} plantIndex - Plant index in garden
-   */
-  displayBlackTeaRollingTimeline(plant, plantProgression, rollingForecast, plantIndex) {
-    console.log('\n⚫ === BLACK TEA: 4-YEAR ROLLING TIMELINE ===');
-    console.log(`Plant: ${plant.name} [${plant.state}] (Garden index: ${plantIndex})`);
-    console.log('Source: Live rolling weather timeline - always current');
-    
-    console.log('\n📅 TURN-BY-TURN PLANT PROGRESSION:');
-    
-    // Show progression by years
-    let year = 1;
-    let seasonCounter = 0;
-    const seasonsPerYear = 4;
-    
-    console.log(`\n--- YEAR ${year} ---`);
-    
-    plantProgression.progression.forEach((step, index) => {
-      // Track year changes
-      if (seasonCounter > 0 && seasonCounter % (seasonsPerYear * 3) === 0) {
-        year++;
-        console.log(`\n--- YEAR ${year} ---`);
-      }
-      
-      const statusIcon = step.isAlive ? (step.harvestReady ? '🌿' : '🌱') : '💀';
-      const dangerIcon = this.isEventVulnerableForPlant(plant, step.weather) ? ' ⚠️' : '';
-      
-      console.log(`   Turn ${step.turn}: ${step.plantState} (age ${step.plantAge}) | ${step.weather}${dangerIcon} ${statusIcon}`);
-      
-      if (!step.isAlive) {
-        console.log(`   💀 DEATH POINT - Plant dies from ${step.weather}`);
-      }
-      
-      seasonCounter++;
-    });
-    
-    if (plantProgression.deathInfo) {
-      console.log(`\n💀 Plant will die at turn ${plantProgression.deathInfo.turn} from ${plantProgression.deathInfo.cause}`);
-    } else {
-      console.log(`\n✅ Plant survives the full 4-year rolling forecast`);
-    }
-    
-    console.log('\n⚫ Black Tea power: Select any future state to replace the present plant');
-    console.log('   The plant will be advanced/rewound to that exact point in the timeline');
-  }
-
-  /**
-   * Get selectable states from plant progression
-   * @param {Object} plantProgression - Plant progression data
-   * @returns {Array} Selectable states
-   */
-  getSelectableStatesFromProgression(plantProgression) {
-    return plantProgression.progression.map((step, index) => ({
-      actionNumber: step.turn,
-      season: step.season,
-      weather: step.weather,
-      plantState: step.plantState,
-      age: step.plantAge,
-      stateProgress: step.stateProgress,
-      harvestReady: step.harvestReady,
-      isAlive: step.isAlive,
-      selectionIndex: index
-    })).filter(state => state.isAlive); // Only allow selection of living states
-  }
-
-  /**
-   * Replace plant with future state from progression
-   * @param {Object} plant - Plant to replace
-   * @param {number} plantIndex - Plant index in garden
-   * @param {Object} plantProgression - Plant progression data
-   * @param {number} targetAction - Target action/turn number
-   * @returns {Object} Replacement result
-   */
-  replaceWithFutureStateFromProgression(plant, plantIndex, plantProgression, targetAction) {
-    // Find the progression step for the target action
-    const targetStep = plantProgression.progression.find(step => step.turn === targetAction);
-    
-    if (!targetStep) {
-      return {
-        success: false,
-        message: `No progression data found for turn ${targetAction}`
-      };
-    }
-    
-    if (!targetStep.isAlive) {
-      return {
-        success: false,
-        message: `Cannot select dead plant state at turn ${targetAction}`
-      };
-    }
-    
-    console.log(`\n⚫ Replacing ${plant.name} with its state from turn ${targetAction}...`);
-    console.log(`   Current: ${plant.state} (age ${plant.age || 0})`);
-    console.log(`   Target: ${targetStep.plantState} (age ${targetStep.plantAge})`);
-    
-    // Apply the future state to the current plant
-    plant.state = targetStep.plantState;
-    plant.age = targetStep.plantAge;
-    plant.stateProgress = targetStep.stateProgress;
-    plant.harvestReady = targetStep.harvestReady;
-    
-    console.log(`✅ Plant successfully advanced/rewound to turn ${targetAction} state`);
-    console.log(`   New state: ${plant.state} (age ${plant.age})`);
-    
-    return {
-      success: true,
-      fromTurn: 1,
-      toTurn: targetAction,
-      oldState: plant.state,
-      newState: targetStep.plantState,
-      weatherAtTarget: targetStep.weather,
-      seasonAtTarget: targetStep.season
-    };
-  }
-
-  /**
-   * Get next season in cycle
-   * @param {string} currentSeason - Current season
-   * @returns {string} Next season
-   */
-  getNextSeasonInCycle(currentSeason) {
-    const seasons = this.timeManager.getAllSeasons();
-    const currentIndex = seasons.indexOf(currentSeason);
-    return seasons[(currentIndex + 1) % seasons.length];
-  }
-
-  /**
-   * Check if a weather event is vulnerable for a plant
-   * @param {Object} plant - Plant to check
-   * @param {string} weatherEvent - Weather event
-   * @returns {boolean} Whether event is vulnerable for plant
-   */
-  isEventVulnerableForPlant(plant, weatherEvent) {
-    const stageDef = plant.definition.states[plant.state];
-    const vulnerabilities = (stageDef && stageDef.vulnerabilities) ? stageDef.vulnerabilities : [];
-    return vulnerabilities.some(v => v.event === weatherEvent);
-  }
+  // Display comprehensive timeline prediction for Green Tea consumption
   displayTimelinePrediction(plant, timeline, plantIndex) {
     console.log('\n🔮 === 4-YEAR FUTURE TIMELINE ===');
     console.log(`Plant: ${plant.name} [${plant.state}] (Garden index: ${plantIndex})`);
@@ -916,99 +464,48 @@ class TeaTimeEngine {
 
   // Future simulation for Green Tea effect (simulates 48 actions = 4 years)
   simulatePlantFuture(plantCard, actionsToSimulate = 48) {
-    // Create a deep copy of the plant for simulation
-    const Card = require('./Card');
-    const simulatedPlant = new Card(plantCard.definition, plantCard.state);
-    
-    // Copy current state
-    simulatedPlant.stateProgress = plantCard.stateProgress || 0;
-    simulatedPlant.age = plantCard.age || 0;
-    simulatedPlant.lifespan = plantCard.lifespan;
-    simulatedPlant._seasonCounter = plantCard._seasonCounter || 0;
-    simulatedPlant._transitionThreshold = plantCard._transitionThreshold;
-    
-    // Track active protections during simulation
-    const simulatedProtections = { ...plantCard.activeConditions };
-    
-    // Track simulation state
-    let currentSimSeason = this.getCurrentSeason();
-    let seasonActionCounter = this.player.actionsLeft;
-    let deathInfo = null;
-    
-    // Store locked prediction for later enforcement
-    if (!this.lockedPredictions) this.lockedPredictions = new Map();
-    
-    // FIRST PASS: Determine if plant will survive or die and when
-    const survivalOutcome = this.determinePlantSurvivalOutcome(plantCard, actionsToSimulate);
-    
-    // Generate weather forecast that ensures the survival outcome
-    const weatherForecast = this.generateOutcomeDrivenWeatherForecast(
-      plantCard, 
-      actionsToSimulate, 
-      survivalOutcome
-    );
-    
-    for (let action = 1; action <= actionsToSimulate; action++) {
-      // Advance season when actions are used up
-      if (seasonActionCounter <= 0) {
-        currentSimSeason = this.getNextSeason(currentSimSeason);
-        seasonActionCounter = this.timeManager.getActionsPerSeason();
-        
-        // Reset resource tracking for new season
-        simulatedPlant.resetSeasonResources();
-        
-        // Process plant progression at season end
-        this.simulateSeasonEndProgression(simulatedPlant, currentSimSeason);
-      }
-      
-      seasonActionCounter--;
-      
-      // Tick down protection conditions
-      Object.keys(simulatedProtections).forEach(condition => {
-        simulatedProtections[condition]--;
-        if (simulatedProtections[condition] <= 0) {
-          delete simulatedProtections[condition];
-        }
-      });
-      
-      // Use forecasted weather event instead of random
-      const weatherEvent = weatherForecast[action - 1];
-      const conditions = this.weatherSystem.getEventConditions(currentSimSeason, weatherEvent);
-      
-      // Check if plant dies from this weather event
-      const vulnerability = this.checkPlantVulnerability(simulatedPlant, weatherEvent, simulatedProtections);
-      if (vulnerability.dies) {
-        deathInfo = {
-          action: action,
-          season: currentSimSeason,
-          cause: weatherEvent,
-          description: vulnerability.description
-        };
-        break;
-      }
-      
-      // Add resource fulfillment
-      const stageDef = simulatedPlant.definition.states[simulatedPlant.state];
-      if (stageDef && stageDef.needs && stageDef.needs.resources) {
-        conditions.forEach(condition => {
-          if (stageDef.needs.resources.includes(condition) || simulatedProtections[condition]) {
-            simulatedPlant.resourcesThisSeason.add(condition);
-          }
-        });
-      }
+    // Generate predetermined weather forecast if not already done
+    if (!this.weatherForecastLocked) {
+      const forecast = this.weatherSystem.getPredeterminedForecast(
+        this.getCurrentSeason(),
+        this.player.actionsLeft,
+        actionsToSimulate
+      );
+      this.weatherSystem.setPredeterminedForecast(forecast);
+      this.weatherForecastLocked = true;
     }
     
-    // Store the locked prediction for this plant
-    const plantKey = this.storePlantPrediction(plantCard, deathInfo, actionsToSimulate);
+    // Create timeline for the plant
+    const timeline = this.createTimeline(actionsToSimulate);
     
-    return {
-      alive: !deathInfo,
-      deathInfo: deathInfo,
-      finalState: simulatedPlant.state,
-      finalAge: simulatedPlant.age,
-      predictionKey: plantKey,
-      weatherForecast: weatherForecast // Add this for testing purposes
-    };
+    // Get plant ID and check for death predictions
+    const plantIndex = this.player.garden.indexOf(plantCard);
+    const plantId = timeline.getPlantId(plantCard, plantIndex);
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    
+    if (plantDeath) {
+      return {
+        alive: false,
+        deathInfo: {
+          action: plantDeath.deathAction,
+          season: plantDeath.season,
+          cause: plantDeath.cause,
+          description: `Plant will die from ${plantDeath.cause} vulnerability`
+        },
+        finalState: 'dead',
+        finalAge: plantCard.age || 0,
+        weatherForecast: this.weatherSystem.predeterminedForecast.slice(0, actionsToSimulate)
+      };
+    } else {
+      return {
+        alive: true,
+        deathInfo: null,
+        finalState: plantCard.state, // This could be updated to show final state from timeline
+        finalAge: plantCard.age || 0,
+        weatherForecast: this.weatherSystem.predeterminedForecast.slice(0, actionsToSimulate)
+      };
+    }
   }
 
   // Helper method to get next season in cycle
@@ -1747,13 +1244,13 @@ class TeaTimeEngine {
 
     console.log(`🫖 Consuming ${teaCard.name} to view future harvest timeline from ${selectedPlant.name}...`);
     
-    // Use rolling timeline to generate harvest timeline
+    // Use cached timeline if provided, otherwise generate new one
     let timelineResult;
     if (cachedTimeline && cachedTimeline.success) {
       timelineResult = cachedTimeline;
     } else {
-      // Generate the 4-year harvest timeline using rolling weather forecast
-      timelineResult = this.simulateHarvestTimelineFromRollingForecast(selectedPlant);
+      // Generate the 4-year harvest timeline
+      timelineResult = this.simulateFutureHarvestTimeline(selectedPlant);
       
       if (!timelineResult.success) {
         console.log(`❌ Future harvest timeline failed: ${timelineResult.message}`);
@@ -1828,41 +1325,43 @@ class TeaTimeEngine {
       return { success: false, message: 'No plant found' };
     }
 
-    console.log(`⚫ Drinking Black Tea to view the 4-year rolling timeline of ${plant.name} [${plant.state}]...`);
+    console.log(`⚫ Drinking Black Tea to view the 4-year timeline of ${plant.name} [${plant.state}]...`);
     
-    // Get rolling weather forecast and simulate plant states
-    const rollingForecast = this.getFullRollingTimeline();
-    const plantProgression = this.simulatePlantProgressionThroughForecast(plant, rollingForecast);
+    // Ensure plant has unique ID and get/create timeline
+    this.assignPlantId(plant);
+    const timeline = this.getOrCreatePlantTimeline(plant, 48);
     
-    // Display the rolling timeline
-    this.displayBlackTeaRollingTimeline(plant, plantProgression, rollingForecast, plantIndex);
+    // Display the timeline first
+    this.displayBlackTeaTimeline(plant, timeline, plantIndex);
     
     // If no target action specified, return timeline data for selection
     if (targetAction === null) {
-      const selectableStates = this.getSelectableStatesFromProgression(plantProgression);
+      const timelineStates = this.getSelectableStatesFromTimeline(plant, timeline);
       return {
         success: true,
         requiresSelection: true,
         message: 'Select a future state to replace the present plant',
-        timelineStates: selectableStates,
-        progression: plantProgression,
-        rollingForecast: rollingForecast,
+        timelineStates: timelineStates,
+        timeline: timeline,
         teaCard: teaCard,
         plantIndex: plantIndex
       };
     }
     
     // Execute state replacement if target action specified
-    const replacementResult = this.replaceWithFutureStateFromProgression(plant, plantIndex, plantProgression, targetAction);
+    const replacementResult = this.replaceWithFutureState(plant, plantIndex, timeline, targetAction);
     
     if (replacementResult.success) {
       // Remove the consumed tea
       this.player.removeCardFromCurrentLocation(teaCard);
       console.log(`⚫ ${teaCard.name} consumed successfully.`);
       
+      // Invalidate timeline since plant has changed
+      this.invalidatePlantTimeline(plant);
+      
       return {
         success: true,
-        message: 'Plant replaced with future state from rolling timeline',
+        message: 'Plant replaced with future state',
         replacementInfo: replacementResult,
         newPlantState: plant.state
       };
@@ -2209,50 +1708,6 @@ class TeaTimeEngine {
       totalActions: actionsToSimulate,
       isLocked: timeline.isLocked
     };
-  }
-
-  // === Rolling Weather Timeline Methods ===
-
-  /**
-   * Get the current weather event from rolling timeline (for immediate application)
-   * @returns {Object} Current weather event
-   */
-  getCurrentWeatherEvent() {
-    return this.rollingWeatherTimeline.getCurrentWeatherEvent();
-  }
-
-  /**
-   * Get rolling weather forecast (for Green Tea)
-   * @param {number} count - Number of events to retrieve (default 48 for 4 years)
-   * @returns {Array} Array of weather events
-   */
-  getRollingWeatherForecast(count = 48) {
-    return this.rollingWeatherTimeline.getWeatherForecast(count);
-  }
-
-  /**
-   * Get full rolling timeline (for Oolong Tea)
-   * @returns {Array} Complete 4-year timeline
-   */
-  getFullRollingTimeline() {
-    return this.rollingWeatherTimeline.getFullTimeline();
-  }
-
-  /**
-   * Get weather at specific turn ahead (for Black Tea)
-   * @param {number} turnsAhead - How many turns ahead to look
-   * @returns {Object|null} Weather event or null if out of range
-   */
-  getWeatherAtTurnAhead(turnsAhead) {
-    return this.rollingWeatherTimeline.getWeatherAtTurn(turnsAhead);
-  }
-
-  /**
-   * Get rolling timeline debug information
-   * @returns {Object} Debug information about the rolling timeline
-   */
-  getRollingTimelineDebugInfo() {
-    return this.rollingWeatherTimeline.getDebugInfo();
   }
 }
 

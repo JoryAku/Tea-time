@@ -120,11 +120,14 @@ function promptAction() {
         // Determine tea type and show appropriate message
         const isGreenTea = teaCard.definition.id === 'green_tea';
         const isOolongTea = teaCard.definition.id === 'oolong_tea';
+        const isBlackTea = teaCard.definition.id === 'black_tea';
         
         if (isGreenTea) {
           console.log('\n🔮 Green Tea: Select a plant to see its future timeline:');
         } else if (isOolongTea) {
           console.log('\n🫖 Oolong Tea: Select a plant to harvest from the future:');
+        } else if (isBlackTea) {
+          console.log('\n⚫ Black Tea: Select a plant to view its 4-year timeline and replace with a future state:');
         } else {
           console.log('\n🍵 Select a plant for tea effect:');
         }
@@ -210,6 +213,84 @@ function promptAction() {
                   game.triggerWeather();
                 } else {
                   console.log(`❌ Harvest execution failed: ${finalResult.message}`);
+                }
+                
+                if (game.player.actionsLeft <= 0) {
+                  game.endSeasonProcessing();
+                }
+                
+                return promptAction();
+              });
+              return;
+            } else {
+              consumptionSuccess = consumptionResult.success;
+            }
+          } else if (isBlackTea) {
+            const consumptionResult = game.consumeBlackTeaWithPlantSelection(teaCard, plantIndex);
+            
+            if (consumptionResult.success && consumptionResult.requiresSelection) {
+              // Handle timeline state selection
+              const timelineStates = consumptionResult.timelineStates;
+              
+              if (timelineStates.length <= 1) {
+                console.log('❌ No selectable future states available.');
+                return promptAction();
+              }
+              
+              console.log('\n🔄 === SELECT FUTURE STATE TO REPLACE PRESENT PLANT ===');
+              console.log('Choose which future state to use:');
+              
+              timelineStates.forEach((stateInfo, index) => {
+                const yearsFromNow = Math.ceil(stateInfo.action / 12);
+                const ageText = stateInfo.age ? ` (age ${stateInfo.age})` : '';
+                const harvestText = stateInfo.harvestInfo && stateInfo.harvestInfo.isHarvestable ? 
+                  ` - 🌾 Harvestable (${stateInfo.harvestInfo.yieldCount} items)` : '';
+                const currentText = stateInfo.isCurrent ? ' (current state)' : '';
+                const invalidText = !stateInfo.isValid ? ' ⚠️ INVALID (dead)' : '';
+                
+                console.log(`  ${index}: Action ${stateInfo.action} - ${stateInfo.state}${ageText}${currentText}${harvestText}${invalidText}`);
+              });
+              
+              rl.question('\nSelect state index (or "cancel" to abort): ', (stateInput) => {
+                const trimmedInput = stateInput.trim().toLowerCase();
+                
+                if (trimmedInput === 'cancel') {
+                  console.log('🚫 Black Tea consumption cancelled.');
+                  return promptAction();
+                }
+                
+                const stateIndex = parseInt(trimmedInput, 10);
+                if (isNaN(stateIndex) || stateIndex < 0 || stateIndex >= timelineStates.length) {
+                  console.log('❌ Invalid state selection.');
+                  return promptAction();
+                }
+                
+                const selectedState = timelineStates[stateIndex];
+                
+                if (!selectedState.isValid) {
+                  console.log('❌ Cannot select invalid state (dead plant).');
+                  return promptAction();
+                }
+                
+                if (selectedState.isCurrent) {
+                  console.log('❌ Plant is already in the selected state.');
+                  return promptAction();
+                }
+                
+                // Execute the state replacement
+                const finalResult = game.consumeBlackTeaWithPlantSelection(
+                  consumptionResult.teaCard, 
+                  consumptionResult.plantIndex, 
+                  selectedState.action
+                );
+                
+                if (finalResult.success) {
+                  console.log('✅ Plant successfully replaced with future state!');
+                  consumptionSuccess = true;
+                  game.player.actionsLeft -= 1;
+                  game.triggerWeather();
+                } else {
+                  console.log(`❌ State replacement failed: ${finalResult.message}`);
                 }
                 
                 if (game.player.actionsLeft <= 0) {
