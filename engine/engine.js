@@ -116,8 +116,12 @@ class TeaTimeEngine {
     this.assignPlantId(startSeedling);
     this.player.garden.push(startSeedling);
     const startGreenTea = this.createCard("tea_leaf_green");
+    const startOolongTea = this.createCard("tea_leaf_oolong");
+    const startBlackTea = this.createCard("tea_leaf_black");
     this.player.kitchen.push(startGreenTea);
-    
+    this.player.kitchen.push(startOolongTea);
+    this.player.kitchen.push(startBlackTea);
+
     // Initialize harvest readiness for any mature plants based on current season
     this.player.garden.forEach(card => {
       if (card.state === 'mature') {
