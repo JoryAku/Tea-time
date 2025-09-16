@@ -27,6 +27,10 @@ class TeaTimeEngine {
     this.plantTimelines = new Map(); // Map of plantId -> cached timeline
     this.nextPlantId = 1; // Counter for unique plant IDs
     
+    // Weather forecast management for predictions
+    this.currentActionNumber = 0; // Track current action in the game
+    this.weatherForecastLocked = false; // Whether weather is predetermined
+    
     // Initialize starting deck
     this.initStartingDeck();
   }
@@ -112,8 +116,12 @@ class TeaTimeEngine {
     this.assignPlantId(startSeedling);
     this.player.garden.push(startSeedling);
     const startGreenTea = this.createCard("tea_leaf_green");
+    const startOolongTea = this.createCard("tea_leaf_oolong");
+    const startBlackTea = this.createCard("tea_leaf_black");
     this.player.kitchen.push(startGreenTea);
-    
+    this.player.kitchen.push(startOolongTea);
+    this.player.kitchen.push(startBlackTea);
+
     // Initialize harvest readiness for any mature plants based on current season
     this.player.garden.forEach(card => {
       if (card.state === 'mature') {
@@ -152,7 +160,8 @@ class TeaTimeEngine {
 
   // Trigger weather event after each action
   triggerWeather() {
-    const event = this.weatherSystem.pickWeatherEvent(this.getCurrentSeason());
+    this.currentActionNumber++;
+    const event = this.weatherSystem.pickWeatherEvent(this.getCurrentSeason(), this.currentActionNumber);
     console.log(`\n🌦 Weather event: ${event}`);
     this.applyWeather(event);
     this.progressOxidation();
@@ -275,6 +284,18 @@ class TeaTimeEngine {
     }
 
     console.log(`🔮 Drinking Green Tea to see the future of ${plant.name} [${plant.state}]...`);
+    
+    // Generate predetermined weather forecast for next 48 actions
+    if (!this.weatherForecastLocked) {
+      const forecast = this.weatherSystem.getPredeterminedForecast(
+        this.getCurrentSeason(),
+        this.player.actionsLeft,
+        48
+      );
+      this.weatherSystem.setPredeterminedForecast(forecast);
+      this.weatherForecastLocked = true;
+      console.log('\n🔒 Weather forecast LOCKED for next 48 actions based on Green Tea vision.');
+    }
     
     // Ensure plant has unique ID and get/create consistent timeline
     this.assignPlantId(plant);
@@ -444,99 +465,48 @@ class TeaTimeEngine {
 
   // Future simulation for Green Tea effect (simulates 48 actions = 4 years)
   simulatePlantFuture(plantCard, actionsToSimulate = 48) {
-    // Create a deep copy of the plant for simulation
-    const Card = require('./Card');
-    const simulatedPlant = new Card(plantCard.definition, plantCard.state);
-    
-    // Copy current state
-    simulatedPlant.stateProgress = plantCard.stateProgress || 0;
-    simulatedPlant.age = plantCard.age || 0;
-    simulatedPlant.lifespan = plantCard.lifespan;
-    simulatedPlant._seasonCounter = plantCard._seasonCounter || 0;
-    simulatedPlant._transitionThreshold = plantCard._transitionThreshold;
-    
-    // Track active protections during simulation
-    const simulatedProtections = { ...plantCard.activeConditions };
-    
-    // Track simulation state
-    let currentSimSeason = this.getCurrentSeason();
-    let seasonActionCounter = this.player.actionsLeft;
-    let deathInfo = null;
-    
-    // Store locked prediction for later enforcement
-    if (!this.lockedPredictions) this.lockedPredictions = new Map();
-    
-    // FIRST PASS: Determine if plant will survive or die and when
-    const survivalOutcome = this.determinePlantSurvivalOutcome(plantCard, actionsToSimulate);
-    
-    // Generate weather forecast that ensures the survival outcome
-    const weatherForecast = this.generateOutcomeDrivenWeatherForecast(
-      plantCard, 
-      actionsToSimulate, 
-      survivalOutcome
-    );
-    
-    for (let action = 1; action <= actionsToSimulate; action++) {
-      // Advance season when actions are used up
-      if (seasonActionCounter <= 0) {
-        currentSimSeason = this.getNextSeason(currentSimSeason);
-        seasonActionCounter = this.timeManager.getActionsPerSeason();
-        
-        // Reset resource tracking for new season
-        simulatedPlant.resetSeasonResources();
-        
-        // Process plant progression at season end
-        this.simulateSeasonEndProgression(simulatedPlant, currentSimSeason);
-      }
-      
-      seasonActionCounter--;
-      
-      // Tick down protection conditions
-      Object.keys(simulatedProtections).forEach(condition => {
-        simulatedProtections[condition]--;
-        if (simulatedProtections[condition] <= 0) {
-          delete simulatedProtections[condition];
-        }
-      });
-      
-      // Use forecasted weather event instead of random
-      const weatherEvent = weatherForecast[action - 1];
-      const conditions = this.weatherSystem.getEventConditions(currentSimSeason, weatherEvent);
-      
-      // Check if plant dies from this weather event
-      const vulnerability = this.checkPlantVulnerability(simulatedPlant, weatherEvent, simulatedProtections);
-      if (vulnerability.dies) {
-        deathInfo = {
-          action: action,
-          season: currentSimSeason,
-          cause: weatherEvent,
-          description: vulnerability.description
-        };
-        break;
-      }
-      
-      // Add resource fulfillment
-      const stageDef = simulatedPlant.definition.states[simulatedPlant.state];
-      if (stageDef && stageDef.needs && stageDef.needs.resources) {
-        conditions.forEach(condition => {
-          if (stageDef.needs.resources.includes(condition) || simulatedProtections[condition]) {
-            simulatedPlant.resourcesThisSeason.add(condition);
-          }
-        });
-      }
+    // Generate predetermined weather forecast if not already done
+    if (!this.weatherForecastLocked) {
+      const forecast = this.weatherSystem.getPredeterminedForecast(
+        this.getCurrentSeason(),
+        this.player.actionsLeft,
+        actionsToSimulate
+      );
+      this.weatherSystem.setPredeterminedForecast(forecast);
+      this.weatherForecastLocked = true;
     }
     
-    // Store the locked prediction for this plant
-    const plantKey = this.storePlantPrediction(plantCard, deathInfo, actionsToSimulate);
+    // Create timeline for the plant
+    const timeline = this.createTimeline(actionsToSimulate);
     
-    return {
-      alive: !deathInfo,
-      deathInfo: deathInfo,
-      finalState: simulatedPlant.state,
-      finalAge: simulatedPlant.age,
-      predictionKey: plantKey,
-      weatherForecast: weatherForecast // Add this for testing purposes
-    };
+    // Get plant ID and check for death predictions
+    const plantIndex = this.player.garden.indexOf(plantCard);
+    const plantId = timeline.getPlantId(plantCard, plantIndex);
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    
+    if (plantDeath) {
+      return {
+        alive: false,
+        deathInfo: {
+          action: plantDeath.deathAction,
+          season: plantDeath.season,
+          cause: plantDeath.cause,
+          description: `Plant will die from ${plantDeath.cause} vulnerability`
+        },
+        finalState: 'dead',
+        finalAge: plantCard.age || 0,
+        weatherForecast: this.weatherSystem.predeterminedForecast.slice(0, actionsToSimulate)
+      };
+    } else {
+      return {
+        alive: true,
+        deathInfo: null,
+        finalState: plantCard.state, // This could be updated to show final state from timeline
+        finalAge: plantCard.age || 0,
+        weatherForecast: this.weatherSystem.predeterminedForecast.slice(0, actionsToSimulate)
+      };
+    }
   }
 
   // Helper method to get next season in cycle
