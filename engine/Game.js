@@ -70,6 +70,16 @@ class Game {
     return this.engine.consumeOolongTeaWithPlantSelection(teaCard, plantIndex, harvestChoice, cachedTimeline);
   }
 
+  // Delegate Black Tea consumption method
+  consumeBlackTeaWithPlantSelection(teaCard, plantIndex, targetAction = null) {
+    return this.engine.consumeBlackTeaWithPlantSelection(teaCard, plantIndex, targetAction);
+  }
+
+  // Delegate plant ID assignment
+  assignPlantId(plant) {
+    return this.engine.assignPlantId(plant);
+  }
+
   // === Timeline System Methods ===
 
   // Create a comprehensive timeline for all garden plants

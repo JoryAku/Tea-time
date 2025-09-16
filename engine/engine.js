@@ -23,6 +23,10 @@ class TeaTimeEngine {
     this.player = new Player();
     this.player.actionsLeft = this.timeManager.getActionsPerSeason();
     
+    // Timeline storage for consistency across tea powers
+    this.plantTimelines = new Map(); // Map of plantId -> cached timeline
+    this.nextPlantId = 1; // Counter for unique plant IDs
+    
     // Initialize starting deck
     this.initStartingDeck();
   }
@@ -35,9 +39,77 @@ class TeaTimeEngine {
     return new Card(def, state);
   }
 
+  // === Plant ID Management ===
+  
+  /**
+   * Assign a unique ID to a plant if it doesn't have one
+   * @param {Card} plant - Plant card to assign ID to
+   * @returns {string} The assigned plant ID
+   */
+  assignPlantId(plant) {
+    if (!plant.uniqueId) {
+      plant.uniqueId = `plant_${this.nextPlantId++}`;
+    }
+    return plant.uniqueId;
+  }
+
+  /**
+   * Get or create timeline for a specific plant
+   * @param {Card} plant - Plant to get timeline for
+   * @param {number} actionsToSimulate - Actions to simulate (default 48)
+   * @param {boolean} forceUpdate - Force timeline regeneration
+   * @returns {Timeline} Timeline object for the plant
+   */
+  getOrCreatePlantTimeline(plant, actionsToSimulate = 48, forceUpdate = false) {
+    const plantId = this.assignPlantId(plant);
+    
+    // Check if timeline exists and is still valid
+    if (!forceUpdate && this.plantTimelines.has(plantId)) {
+      const cachedTimeline = this.plantTimelines.get(plantId);
+      // Check if the cached timeline covers enough actions
+      if (cachedTimeline.maxActions >= actionsToSimulate) {
+        return cachedTimeline;
+      }
+    }
+    
+    // Create new timeline
+    const timeline = new Timeline(
+      this,
+      this.getCurrentSeason(),
+      this.player.actionsLeft
+    );
+    
+    // Generate timeline for the specific plant (and others for context)
+    timeline.generateTimeline(this.player.garden, actionsToSimulate);
+    
+    // Cache the timeline
+    this.plantTimelines.set(plantId, timeline);
+    
+    return timeline;
+  }
+
+  /**
+   * Invalidate timeline for a plant (called when plant state changes significantly)
+   * @param {Card} plant - Plant whose timeline should be invalidated
+   */
+  invalidatePlantTimeline(plant) {
+    if (plant.uniqueId && this.plantTimelines.has(plant.uniqueId)) {
+      this.plantTimelines.delete(plant.uniqueId);
+    }
+  }
+
+  /**
+   * Clear all cached timelines (called when major game state changes)
+   */
+  clearAllTimelines() {
+    this.plantTimelines.clear();
+  }
+
   initStartingDeck() {
     // Start with only one tea_plant seedling in the garden
     const startSeedling = this.createCard("tea_plant", "seedling");
+    // Assign unique ID to starting plant
+    this.assignPlantId(startSeedling);
     this.player.garden.push(startSeedling);
     const startGreenTea = this.createCard("tea_leaf_green");
     this.player.kitchen.push(startGreenTea);
@@ -98,6 +170,11 @@ class TeaTimeEngine {
     // Apply weather to each plant in garden
     this.player.garden.forEach((card) => {
       this.plantManager.applyWeatherToPlant(card, event, conditions);
+      
+      // Invalidate timeline if plant state changes significantly
+      if (card.state === 'dead') {
+        this.invalidatePlantTimeline(card);
+      }
     });
   }
 
@@ -131,10 +208,15 @@ class TeaTimeEngine {
     const currentSeason = this.getCurrentSeason();
     
     this.player.garden.forEach((card, idx) => {
+      const originalState = card.state;
+      
       // Handle compost planting first
       if (card.state === 'compost' && card.justPlantedSeed) {
         const newSeedling = this.plantManager.processCompostPlanting(card, this.player, card.definition.id);
         if (newSeedling) {
+          // Assign ID to new seedling and invalidate old timeline
+          this.assignPlantId(newSeedling);
+          this.invalidatePlantTimeline(card);
           this.player.garden[idx] = newSeedling;
           console.log(`🌱 A seed was planted in compost and is now a seedling.`);
           return;
@@ -143,6 +225,11 @@ class TeaTimeEngine {
 
       // Process normal plant progression
       this.plantManager.processPlantProgression(card, currentSeason);
+      
+      // Invalidate timeline if state changed
+      if (card.state !== originalState) {
+        this.invalidatePlantTimeline(card);
+      }
       
       // Handle fertilizer creation from dead plants
       if (card.state === 'compost' && card.definition.states.dead && 
@@ -189,8 +276,9 @@ class TeaTimeEngine {
 
     console.log(`🔮 Drinking Green Tea to see the future of ${plant.name} [${plant.state}]...`);
     
-    // Generate comprehensive timeline for 48 actions (4 years)
-    const timeline = this.createTimeline(48);
+    // Ensure plant has unique ID and get/create consistent timeline
+    this.assignPlantId(plant);
+    const timeline = this.getOrCreatePlantTimeline(plant, 48);
     
     // Display the comprehensive timeline prediction
     this.displayTimelinePrediction(plant, timeline, plantIndex);
@@ -1250,6 +1338,301 @@ class TeaTimeEngine {
     } else {
       return harvestResult;
     }
+  }
+
+  // === Black Tea Consumption: Timeline Viewer and State Replacement ===
+
+  /**
+   * Handle Black Tea consumption with plant selection and timeline manipulation
+   * @param {Card} teaCard - The Black Tea card being consumed
+   * @param {number} plantIndex - Index of the plant in garden
+   * @param {number} targetAction - Which future action to replace plant with (null for timeline display only)
+   * @returns {Object} Result of the consumption
+   */
+  consumeBlackTeaWithPlantSelection(teaCard, plantIndex, targetAction = null) {
+    const plant = this.player.garden[plantIndex];
+    if (!plant) {
+      console.log('❌ No plant at that garden index.');
+      return { success: false, message: 'No plant found' };
+    }
+
+    console.log(`⚫ Drinking Black Tea to view the 4-year timeline of ${plant.name} [${plant.state}]...`);
+    
+    // Ensure plant has unique ID and get/create timeline
+    this.assignPlantId(plant);
+    const timeline = this.getOrCreatePlantTimeline(plant, 48);
+    
+    // Display the timeline first
+    this.displayBlackTeaTimeline(plant, timeline, plantIndex);
+    
+    // If no target action specified, return timeline data for selection
+    if (targetAction === null) {
+      const timelineStates = this.getSelectableStatesFromTimeline(plant, timeline);
+      return {
+        success: true,
+        requiresSelection: true,
+        message: 'Select a future state to replace the present plant',
+        timelineStates: timelineStates,
+        timeline: timeline,
+        teaCard: teaCard,
+        plantIndex: plantIndex
+      };
+    }
+    
+    // Execute state replacement if target action specified
+    const replacementResult = this.replaceWithFutureState(plant, plantIndex, timeline, targetAction);
+    
+    if (replacementResult.success) {
+      // Remove the consumed tea
+      this.player.removeCardFromCurrentLocation(teaCard);
+      console.log(`⚫ ${teaCard.name} consumed successfully.`);
+      
+      // Invalidate timeline since plant has changed
+      this.invalidatePlantTimeline(plant);
+      
+      return {
+        success: true,
+        message: 'Plant replaced with future state',
+        replacementInfo: replacementResult,
+        newPlantState: plant.state
+      };
+    } else {
+      return replacementResult;
+    }
+  }
+
+  /**
+   * Display Black Tea timeline with all future states
+   * @param {Card} plant - The plant being analyzed
+   * @param {Timeline} timeline - The generated timeline
+   * @param {number} plantIndex - Garden index of the plant
+   */
+  displayBlackTeaTimeline(plant, timeline, plantIndex) {
+    console.log('\n⚫ === BLACK TEA: 4-YEAR TIMELINE VIEWER ===');
+    console.log(`Plant: ${plant.name} [${plant.state}] (Garden index: ${plantIndex})`);
+    console.log('Timeline locked and consistent across all tea powers');
+    console.log('Select any future state to replace the present plant');
+    
+    // Get plant-specific data from timeline
+    const plantId = plant.uniqueId || timeline.getPlantId(plant, plantIndex);
+    const plantStates = timeline.plantStates.get(plantId) || [];
+    
+    // Get death predictions
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    
+    console.log('\n📊 SELECTABLE FUTURE STATES:');
+    
+    if (plantStates.length === 0) {
+      console.log('   No state changes predicted - plant remains in current state');
+      console.log(`   Action 48: ${plant.state} (end of timeline)`);
+      return;
+    }
+    
+    // Display current state
+    console.log(`   Action 0: ${plant.state} (current state)`);
+    
+    // Display each state change with harvestability and yields
+    plantStates.forEach((stateChange, index) => {
+      const harvestInfo = this.getHarvestInfoForState(plant, stateChange, timeline);
+      const deathWarning = plantDeath && stateChange.action >= plantDeath.deathAction ? ' ⚠️ DEAD' : '';
+      
+      console.log(`   Action ${stateChange.action}: ${stateChange.state}${deathWarning}`);
+      
+      if (harvestInfo.isHarvestable) {
+        console.log(`      🌾 Harvestable: ${harvestInfo.yields.join(', ')}`);
+        console.log(`      📈 Expected yields: ${harvestInfo.yieldCount} items`);
+      }
+    });
+    
+    // Show death information if applicable
+    if (plantDeath) {
+      console.log(`\n💀 Plant dies at action ${plantDeath.deathAction} due to ${plantDeath.cause}`);
+      console.log('   States after death are not recommended');
+    }
+    
+    console.log('\n🔄 REPLACEMENT RULES:');
+    console.log('   • Select any action number to replace plant with that state');
+    console.log('   • Harvest potential transfers to the new state');
+    console.log('   • Timelines remain consistent across Green, Oolong, and Black tea');
+    console.log('   • Invalid selections (death states, out of range) will be rejected');
+  }
+
+  /**
+   * Get selectable states from timeline for interface
+   * @param {Card} plant - The plant being analyzed
+   * @param {Timeline} timeline - The generated timeline
+   * @returns {Array} Array of selectable state objects
+   */
+  getSelectableStatesFromTimeline(plant, timeline) {
+    const plantId = plant.uniqueId || timeline.getPlantId(plant, 0);
+    const plantStates = timeline.plantStates.get(plantId) || [];
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    
+    const selectableStates = [];
+    
+    // Add current state
+    selectableStates.push({
+      action: 0,
+      state: plant.state,
+      age: plant.age || 0,
+      isValid: true,
+      isCurrent: true,
+      harvestInfo: this.getHarvestInfoForState(plant, { state: plant.state, age: plant.age || 0 }, timeline)
+    });
+    
+    // Add future states
+    plantStates.forEach(stateChange => {
+      const isValid = !plantDeath || stateChange.action < plantDeath.deathAction;
+      const harvestInfo = this.getHarvestInfoForState(plant, stateChange, timeline);
+      
+      selectableStates.push({
+        action: stateChange.action,
+        state: stateChange.state,
+        age: stateChange.age,
+        isValid: isValid,
+        isCurrent: false,
+        isDead: stateChange.state === 'dead',
+        harvestInfo: harvestInfo
+      });
+    });
+    
+    return selectableStates;
+  }
+
+  /**
+   * Get harvest information for a specific plant state
+   * @param {Card} plant - The original plant
+   * @param {Object} stateInfo - State information (state, age, etc.)
+   * @param {Timeline} timeline - The timeline for context
+   * @returns {Object} Harvest information
+   */
+  getHarvestInfoForState(plant, stateInfo, timeline) {
+    // Check if state is harvestable
+    const stageDef = plant.definition.states[stateInfo.state];
+    const isHarvestable = stageDef && stageDef.actions && stageDef.actions.harvest;
+    
+    if (!isHarvestable) {
+      return { isHarvestable: false, yields: [], yieldCount: 0 };
+    }
+    
+    // Determine harvest yields based on state and age
+    const harvestAction = stageDef.actions.harvest;
+    const yieldTarget = harvestAction.target;
+    const baseYieldCount = 1; // Base yield from harvest action
+    
+    // Age bonus for mature plants
+    const ageBonusYields = Math.floor((stateInfo.age || 0) / 5); // Bonus yield every 5 years
+    const totalYields = baseYieldCount + ageBonusYields;
+    
+    const yields = Array(totalYields).fill(yieldTarget);
+    
+    return {
+      isHarvestable: true,
+      yields: yields,
+      yieldCount: totalYields,
+      baseTarget: yieldTarget
+    };
+  }
+
+  /**
+   * Replace plant with its future state from timeline
+   * @param {Card} plant - The plant to replace
+   * @param {number} plantIndex - Garden index of the plant
+   * @param {Timeline} timeline - The timeline containing future states
+   * @param {number} targetAction - Which action state to use
+   * @returns {Object} Result of the replacement
+   */
+  replaceWithFutureState(plant, plantIndex, timeline, targetAction) {
+    const plantId = plant.uniqueId || timeline.getPlantId(plant, plantIndex);
+    const plantStates = timeline.plantStates.get(plantId) || [];
+    
+    // Validate target action
+    if (targetAction < 0 || targetAction > 48) {
+      return { success: false, message: 'Target action out of range (0-48)' };
+    }
+    
+    // Check for death
+    const deathPredictions = timeline.getDeathPredictions();
+    const plantDeath = deathPredictions.find(death => death.plantId === plantId);
+    if (plantDeath && targetAction >= plantDeath.deathAction) {
+      return { success: false, message: 'Cannot replace with dead state' };
+    }
+    
+    // Find the state at target action
+    let targetState = null;
+    if (targetAction === 0) {
+      // Current state
+      targetState = {
+        state: plant.state,
+        age: plant.age || 0,
+        stateProgress: plant.stateProgress || 0,
+        conditions: plant.activeConditions || {}
+      };
+    } else {
+      // Find most recent state change before or at target action
+      for (const stateChange of plantStates) {
+        if (stateChange.action <= targetAction) {
+          targetState = stateChange;
+        } else {
+          break;
+        }
+      }
+      
+      if (!targetState) {
+        // No state changes, use current state
+        targetState = {
+          state: plant.state,
+          age: plant.age || 0,
+          stateProgress: plant.stateProgress || 0,
+          conditions: plant.activeConditions || {}
+        };
+      }
+    }
+    
+    if (!targetState) {
+      return { success: false, message: 'No valid state found for target action' };
+    }
+    
+    // Store original state for reporting
+    const originalState = {
+      state: plant.state,
+      age: plant.age || 0,
+      stateProgress: plant.stateProgress || 0
+    };
+    
+    // Apply the future state to the plant
+    plant.state = targetState.state;
+    plant.age = targetState.age;
+    plant.stateProgress = targetState.stateProgress;
+    plant.activeConditions = targetState.conditions ? {...targetState.conditions} : {};
+    
+    // Update harvest readiness if applicable
+    if (plant.state === 'mature') {
+      plant.harvestReady = (this.getCurrentSeason() === 'spring');
+    }
+    
+    console.log(`\n🔄 PLANT REPLACEMENT SUCCESSFUL!`);
+    console.log(`   ${plant.name} [${originalState.state}] → [${plant.state}]`);
+    console.log(`   Age: ${originalState.age} → ${plant.age}`);
+    console.log(`   State Progress: ${originalState.stateProgress} → ${plant.stateProgress}`);
+    
+    if (Object.keys(plant.activeConditions).length > 0) {
+      console.log(`   Active Conditions: ${Object.entries(plant.activeConditions).map(([k,v]) => `${k}(${v})`).join(', ')}`);
+    }
+    
+    return {
+      success: true,
+      message: 'Plant state replaced successfully',
+      originalState: originalState,
+      newState: {
+        state: plant.state,
+        age: plant.age,
+        stateProgress: plant.stateProgress
+      },
+      targetAction: targetAction
+    };
   }
 
   // === Timeline System ===
