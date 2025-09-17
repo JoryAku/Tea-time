@@ -109,24 +109,26 @@ function validateBugFix() {
   
   // Check the actual source code implementation
   const fs = require('fs');
-  const engineCode = fs.readFileSync('/home/runner/work/Tea-time/Tea-time/engine/engine.js', 'utf8');
-  
+  const path = require('path');
+  const enginePath = path.join(__dirname, '../../engine/engine.js');
+  const engineCode = fs.readFileSync(enginePath, 'utf8');
+
   // Look for the fix in simulateFutureHarvestTimeline
   const simulateMethod = engineCode.substring(
     engineCode.indexOf('simulateFutureHarvestTimeline(plantCard)'),
     engineCode.indexOf('// Find ALL harvest opportunities in the timeline')
   );
-  
+
   const usesGetOrCreate = simulateMethod.includes('getOrCreatePlantTimeline');
   const usesCreateTimeline = simulateMethod.includes('createTimeline(48)');
-  
+
   console.log("Code analysis:");
   console.log("   Uses getOrCreatePlantTimeline:", usesGetOrCreate ? "✅ Yes" : "❌ No");
   console.log("   Still uses createTimeline:", usesCreateTimeline ? "❌ Yes (bad)" : "✅ No (good)");
-  
+
   const codeFixed = usesGetOrCreate && !usesCreateTimeline;
   console.log("   Code fix applied:", codeFixed ? "✅ Yes" : "❌ No");
-  
+
   return codeFixed;
 }
 
