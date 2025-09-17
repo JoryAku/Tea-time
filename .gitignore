@@ -1,0 +1,10 @@
+# Keep the following test files to avoid testing infra pollution
+# These are temporary tests created for debugging the Green Tea protection issue
+
+test/engine/debugTimelineProtection.js
+test/engine/greenTeaProtectionBugTest.js  
+test/engine/greenTeaProtectionFullTest.js
+test/engine/issueScenarioTest.js
+test/engine/randomVsPredeterminedTest.js
+test/engine/stepByStepProtectionTest.js
+test/engine/timelineMethodComparisonTest.js
