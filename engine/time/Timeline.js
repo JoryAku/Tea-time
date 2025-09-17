@@ -295,14 +295,6 @@ class Timeline {
     
     // Check each action in the forecast for death conditions
     for (let action = 1; action <= actionsToSimulate; action++) {
-      // Tick down protections
-      Object.keys(protectionState).forEach(condition => {
-        protectionState[condition]--;
-        if (protectionState[condition] <= 0) {
-          delete protectionState[condition];
-        }
-      });
-      
       // Get weather event for this action
       const weatherEvent = this.engine.weatherSystem.predeterminedForecast[action - 1];
       
@@ -326,6 +318,14 @@ class Timeline {
           };
         }
       }
+      
+      // Tick down protections at the end of the action
+      Object.keys(protectionState).forEach(condition => {
+        protectionState[condition]--;
+        if (protectionState[condition] <= 0) {
+          delete protectionState[condition];
+        }
+      });
     }
     
     // Plant survives the entire forecast
