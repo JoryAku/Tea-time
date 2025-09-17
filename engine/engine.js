@@ -895,9 +895,11 @@ class TeaTimeEngine {
       };
     }
 
-    // Create timeline to simulate plant's future
-    const timeline = this.createTimeline(48); // 4 years simulation
+    // Use the same timeline system as Green Tea to ensure consistency
+    // This ensures plant protections and cached timelines are properly considered
+    this.assignPlantId(plantCard);
     const plantIndex = this.player.garden.indexOf(plantCard);
+    const timeline = this.getOrCreatePlantTimeline(plantCard, 48);
     const plantId = timeline.getPlantId(plantCard, plantIndex);
     
     // Check if plant will survive
