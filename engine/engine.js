@@ -363,6 +363,13 @@ class TeaTimeEngine {
       } else {
         console.log(`   → No known protection against ${plantDeath.cause}`);
       }
+      
+      // Lock this prediction so it will occur unless intervention is taken
+      this.storePlantPrediction(plant, {
+        action: plantDeath.deathAction,
+        cause: plantDeath.cause,
+        season: plantDeath.season
+      }, 48);
     } else {
       console.log('\n✨ OUTCOME: This plant will SURVIVE the next 4 years!');
       console.log('   No fatal weather events will affect this plant');
