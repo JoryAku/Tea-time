@@ -6,6 +6,7 @@ class Player {
     this.kitchen = [];  // raw & processed ingredients
     this.cafe = [];     // brewed teas
     this.actionsLeft = 3;
+    this.totalActionsUsed = 0; // Track total actions used across all seasons
   }
 
   addCardToLocation(card, location) {
@@ -81,6 +82,45 @@ class Player {
         });
       }
     });
+  }
+
+  // Helper method to increment total actions used
+  useAction(cost = 1) {
+    this.totalActionsUsed += cost;
+    this.actionsLeft -= cost;
+  }
+
+  // Get time information based on total actions used
+  getTimeInfo(actionsPerSeason = 3) {
+    const totalSeasons = Math.floor(this.totalActionsUsed / actionsPerSeason);
+    const years = Math.floor(totalSeasons / 4);
+    const remainingSeasons = totalSeasons % 4;
+    
+    return {
+      totalActionsUsed: this.totalActionsUsed,
+      years,
+      seasons: remainingSeasons,
+      totalSeasons
+    };
+  }
+
+  // Get formatted time string
+  getTimeString(actionsPerSeason = 3) {
+    const timeInfo = this.getTimeInfo(actionsPerSeason);
+    let timeStr = `Total actions: ${timeInfo.totalActionsUsed}`;
+    
+    if (timeInfo.years > 0 || timeInfo.seasons > 0) {
+      const parts = [];
+      if (timeInfo.years > 0) {
+        parts.push(`${timeInfo.years} year${timeInfo.years !== 1 ? 's' : ''}`);
+      }
+      if (timeInfo.seasons > 0) {
+        parts.push(`${timeInfo.seasons} season${timeInfo.seasons !== 1 ? 's' : ''}`);
+      }
+      timeStr += ` (${parts.join(', ')} elapsed)`;
+    }
+    
+    return timeStr;
   }
 }
 
