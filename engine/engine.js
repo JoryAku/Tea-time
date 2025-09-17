@@ -153,7 +153,7 @@ class TeaTimeEngine {
   // Wait action: uses up one action, triggers weather
   waitAction() {
     if (this.player.actionsLeft > 0) {
-      this.player.actionsLeft--;
+      this.player.useAction(1);
       this.triggerWeather();
       console.log(`⏳ Waited. Actions left this season: ${this.player.actionsLeft}`);
       if (this.player.actionsLeft === 0) {
