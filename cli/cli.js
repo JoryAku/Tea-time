@@ -16,6 +16,7 @@ console.log("");
 
 function showState() {
   console.log(`\n=== ${game.currentSeason.toUpperCase()} | Actions left: ${game.player.actionsLeft} ===`);
+  console.log(`⏰ ${game.player.getTimeString(game.actionsPerSeason)}`);
   game.player.listCards();
   // Log current active weather conditions for all plants in the garden
   if (game.player.garden.length > 0) {
@@ -99,7 +100,7 @@ function promptAction() {
       const [_, zone, idx] = action.split(' ');
       game.plantSeedFromZone(zone, parseInt(idx, 10));
       // reduce action only if action succeeded
-      if (game.player.actionsLeft > 0) game.player.actionsLeft -= 1;
+      if (game.player.actionsLeft > 0) game.player.useAction(1);
       // after each action, trigger weather
       game.triggerWeather();
       if (game.player.actionsLeft <= 0) {
@@ -209,7 +210,7 @@ function promptAction() {
                 if (finalResult.success) {
                   console.log('✅ Harvest successfully pulled from the future!');
                   consumptionSuccess = true;
-                  game.player.actionsLeft -= 1;
+                  game.player.useAction(1);
                   game.triggerWeather();
                 } else {
                   console.log(`❌ Harvest execution failed: ${finalResult.message}`);
@@ -287,7 +288,7 @@ function promptAction() {
                 if (finalResult.success) {
                   console.log('✅ Plant successfully replaced with future state!');
                   consumptionSuccess = true;
-                  game.player.actionsLeft -= 1;
+                  game.player.useAction(1);
                   game.triggerWeather();
                 } else {
                   console.log(`❌ State replacement failed: ${finalResult.message}`);
@@ -309,7 +310,7 @@ function promptAction() {
           }
           
           if (consumptionSuccess) {
-            game.player.actionsLeft -= 1;
+            game.player.useAction(1);
             game.triggerWeather();
           }
           
@@ -393,7 +394,7 @@ function promptIntervention() {
     // Apply the intervention
     const result = game.engine.applyProtectiveIntervention(plantIndex, actionType);
     if (result.success) {
-      game.player.actionsLeft -= 1;
+      game.player.useAction(1);
       game.triggerWeather();
       
       if (game.player.actionsLeft <= 0) {

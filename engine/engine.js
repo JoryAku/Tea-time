@@ -3,6 +3,7 @@
 const TimeManager = require('./time/TimeManager');
 const Timeline = require('./time/Timeline');
 const WeatherSystem = require('./weather/WeatherSystem');
+const RollingWeatherTimeline = require('./weather/RollingWeatherTimeline');
 const PlantManager = require('./plants/PlantManager');
 const ActionManager = require('./actions/ActionManager');
 const Player = require('./Player');
@@ -22,6 +23,14 @@ class TeaTimeEngine {
     // Initialize player
     this.player = new Player();
     this.player.actionsLeft = this.timeManager.getActionsPerSeason();
+    
+    // Initialize rolling weather timeline
+    this.rollingWeatherTimeline = new RollingWeatherTimeline(
+      this.weatherSystem,
+      this.timeManager,
+      this.timeManager.getCurrentSeason(),
+      this.player.actionsLeft
+    );
     
     // Timeline storage for consistency across tea powers
     this.plantTimelines = new Map(); // Map of plantId -> cached timeline
@@ -144,7 +153,7 @@ class TeaTimeEngine {
   // Wait action: uses up one action, triggers weather
   waitAction() {
     if (this.player.actionsLeft > 0) {
-      this.player.actionsLeft--;
+      this.player.useAction(1);
       this.triggerWeather();
       console.log(`⏳ Waited. Actions left this season: ${this.player.actionsLeft}`);
       if (this.player.actionsLeft === 0) {
@@ -160,11 +169,14 @@ class TeaTimeEngine {
   // Trigger weather event after each action
   triggerWeather() {
     this.currentActionNumber++;
-    const event = this.weatherSystem.pickWeatherEvent(this.getCurrentSeason(), this.currentActionNumber);
-    console.log(`\n🌦 Weather event: ${event}`);
-    this.applyWeather(event);
+    
+    // Get weather event from rolling timeline
+    const weatherEvent = this.rollingWeatherTimeline.advanceTimeline();
+    console.log(`\n🌦 Weather event: ${weatherEvent.weather} (${weatherEvent.season})`);
+    
+    this.applyWeather(weatherEvent.weather);
     this.progressOxidation();
-    this.checkTeaProcessingFailures(event);
+    this.checkTeaProcessingFailures(weatherEvent.weather);
     // Progress locked predictions from Green Tea
     this.progressLockedPredictions();
     // After weather, tick down all active conditions on all plants
@@ -298,7 +310,11 @@ class TeaTimeEngine {
     
     // Ensure plant has unique ID and get/create consistent timeline
     this.assignPlantId(plant);
-    const timeline = this.getOrCreatePlantTimeline(plant, 48);
+    
+    // Force timeline regeneration if plant has active protection conditions
+    // to ensure the updated protection is properly reflected
+    const hasActiveProtections = plant.activeConditions && Object.keys(plant.activeConditions).length > 0;
+    const timeline = this.getOrCreatePlantTimeline(plant, 48, hasActiveProtections);
     
     // Display the comprehensive timeline prediction
     this.displayTimelinePrediction(plant, timeline, plantIndex);
@@ -347,6 +363,13 @@ class TeaTimeEngine {
       } else {
         console.log(`   → No known protection against ${plantDeath.cause}`);
       }
+      
+      // Lock this prediction so it will occur unless intervention is taken
+      this.storePlantPrediction(plant, {
+        action: plantDeath.deathAction,
+        cause: plantDeath.cause,
+        season: plantDeath.season
+      }, 48);
     } else {
       console.log('\n✨ OUTCOME: This plant will SURVIVE the next 4 years!');
       console.log('   No fatal weather events will affect this plant');
@@ -891,9 +914,11 @@ class TeaTimeEngine {
       };
     }
 
-    // Create timeline to simulate plant's future
-    const timeline = this.createTimeline(48); // 4 years simulation
+    // Use the same timeline system as Green Tea to ensure consistency
+    // This ensures plant protections and cached timelines are properly considered
+    this.assignPlantId(plantCard);
     const plantIndex = this.player.garden.indexOf(plantCard);
+    const timeline = this.getOrCreatePlantTimeline(plantCard, 48);
     const plantId = timeline.getPlantId(plantCard, plantIndex);
     
     // Check if plant will survive
@@ -1626,14 +1651,25 @@ class TeaTimeEngine {
 
     // Apply protection condition
     const condition = actionDef.condition;
-    const duration = actionDef.duration || 6;
+    
+    // For green tea predictions, protection should last the full 4 years (48 actions)
+    // to clear all risks as per the green tea power description
+    const isGreenTeaPredictionActive = this.weatherForecastLocked;
+    const duration = isGreenTeaPredictionActive ? 48 : (actionDef.duration || 6);
+    
     plant.activeConditions = plant.activeConditions || {};
     plant.activeConditions[condition] = duration;
 
-    console.log(`🛡️ Applied ${condition} protection to ${plant.name} for ${duration} actions.`);
+    // Invalidate any cached timeline for this plant to ensure fresh calculation
+    this.invalidatePlantTimeline(plant);
 
-    // Regenerate timeline with the new protection
-    const newTimeline = this.createTimeline(48);
+    console.log(`🛡️ Applied ${condition} protection to ${plant.name} for ${duration} actions.`);
+    if (isGreenTeaPredictionActive) {
+      console.log(`   ✨ Green Tea power: Protection extended to clear all risks for 4 years!`);
+    }
+
+    // Regenerate timeline with the new protection using the invalidated cache
+    const newTimeline = this.getOrCreatePlantTimeline(plant, 48, true);
     
     console.log('\n🔄 === TIMELINE REGENERATED WITH INTERVENTION ===');
     this.displayTimelinePrediction(plant, newTimeline, plantIndex);
@@ -1708,6 +1744,41 @@ class TeaTimeEngine {
       totalActions: actionsToSimulate,
       isLocked: timeline.isLocked
     };
+  }
+
+  // === Rolling Weather Timeline Methods ===
+
+  /**
+   * Get rolling weather forecast
+   * @param {number} count - Number of events to forecast
+   * @returns {Array} Array of weather events
+   */
+  getRollingWeatherForecast(count = 12) {
+    return this.rollingWeatherTimeline.getWeatherForecast(count);
+  }
+
+  /**
+   * Get the current weather event from rolling timeline
+   * @returns {Object} Current weather event
+   */
+  getCurrentWeatherEvent() {
+    return this.rollingWeatherTimeline.getCurrentWeatherEvent();
+  }
+
+  /**
+   * Get the full rolling timeline
+   * @returns {Array} Complete timeline of weather events
+   */
+  getFullRollingTimeline() {
+    return this.rollingWeatherTimeline.getFullTimeline();
+  }
+
+  /**
+   * Get rolling timeline debug information
+   * @returns {Object} Debug information
+   */
+  getRollingTimelineDebugInfo() {
+    return this.rollingWeatherTimeline.getDebugInfo();
   }
 }
 

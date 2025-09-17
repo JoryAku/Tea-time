@@ -180,7 +180,7 @@ module.exports = {
     }
 
     // Deduct action cost
-    game.player.actionsLeft -= actionCost;
+    game.player.useAction(actionCost);
     
     return true;
   },
