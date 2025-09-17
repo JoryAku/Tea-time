@@ -298,7 +298,11 @@ class TeaTimeEngine {
     
     // Ensure plant has unique ID and get/create consistent timeline
     this.assignPlantId(plant);
-    const timeline = this.getOrCreatePlantTimeline(plant, 48);
+    
+    // Force timeline regeneration if plant has active protection conditions
+    // to ensure the updated protection is properly reflected
+    const hasActiveProtections = plant.activeConditions && Object.keys(plant.activeConditions).length > 0;
+    const timeline = this.getOrCreatePlantTimeline(plant, 48, hasActiveProtections);
     
     // Display the comprehensive timeline prediction
     this.displayTimelinePrediction(plant, timeline, plantIndex);
@@ -1626,14 +1630,25 @@ class TeaTimeEngine {
 
     // Apply protection condition
     const condition = actionDef.condition;
-    const duration = actionDef.duration || 6;
+    
+    // For green tea predictions, protection should last the full 4 years (48 actions)
+    // to clear all risks as per the green tea power description
+    const isGreenTeaPredictionActive = this.weatherForecastLocked;
+    const duration = isGreenTeaPredictionActive ? 48 : (actionDef.duration || 6);
+    
     plant.activeConditions = plant.activeConditions || {};
     plant.activeConditions[condition] = duration;
 
-    console.log(`🛡️ Applied ${condition} protection to ${plant.name} for ${duration} actions.`);
+    // Invalidate any cached timeline for this plant to ensure fresh calculation
+    this.invalidatePlantTimeline(plant);
 
-    // Regenerate timeline with the new protection
-    const newTimeline = this.createTimeline(48);
+    console.log(`🛡️ Applied ${condition} protection to ${plant.name} for ${duration} actions.`);
+    if (isGreenTeaPredictionActive) {
+      console.log(`   ✨ Green Tea power: Protection extended to clear all risks for 4 years!`);
+    }
+
+    // Regenerate timeline with the new protection using the invalidated cache
+    const newTimeline = this.getOrCreatePlantTimeline(plant, 48, true);
     
     console.log('\n🔄 === TIMELINE REGENERATED WITH INTERVENTION ===');
     this.displayTimelinePrediction(plant, newTimeline, plantIndex);
