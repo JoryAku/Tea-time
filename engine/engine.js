@@ -3,6 +3,7 @@
 const TimeManager = require('./time/TimeManager');
 const Timeline = require('./time/Timeline');
 const WeatherSystem = require('./weather/WeatherSystem');
+const RollingWeatherTimeline = require('./weather/RollingWeatherTimeline');
 const PlantManager = require('./plants/PlantManager');
 const ActionManager = require('./actions/ActionManager');
 const Player = require('./Player');
@@ -22,6 +23,14 @@ class TeaTimeEngine {
     // Initialize player
     this.player = new Player();
     this.player.actionsLeft = this.timeManager.getActionsPerSeason();
+    
+    // Initialize rolling weather timeline
+    this.rollingWeatherTimeline = new RollingWeatherTimeline(
+      this.weatherSystem,
+      this.timeManager,
+      this.timeManager.getCurrentSeason(),
+      this.player.actionsLeft
+    );
     
     // Timeline storage for consistency across tea powers
     this.plantTimelines = new Map(); // Map of plantId -> cached timeline
@@ -160,11 +169,14 @@ class TeaTimeEngine {
   // Trigger weather event after each action
   triggerWeather() {
     this.currentActionNumber++;
-    const event = this.weatherSystem.pickWeatherEvent(this.getCurrentSeason(), this.currentActionNumber);
-    console.log(`\n🌦 Weather event: ${event}`);
-    this.applyWeather(event);
+    
+    // Get weather event from rolling timeline
+    const weatherEvent = this.rollingWeatherTimeline.advanceTimeline();
+    console.log(`\n🌦 Weather event: ${weatherEvent.weather} (${weatherEvent.season})`);
+    
+    this.applyWeather(weatherEvent.weather);
     this.progressOxidation();
-    this.checkTeaProcessingFailures(event);
+    this.checkTeaProcessingFailures(weatherEvent.weather);
     // Progress locked predictions from Green Tea
     this.progressLockedPredictions();
     // After weather, tick down all active conditions on all plants
@@ -1725,6 +1737,41 @@ class TeaTimeEngine {
       totalActions: actionsToSimulate,
       isLocked: timeline.isLocked
     };
+  }
+
+  // === Rolling Weather Timeline Methods ===
+
+  /**
+   * Get rolling weather forecast
+   * @param {number} count - Number of events to forecast
+   * @returns {Array} Array of weather events
+   */
+  getRollingWeatherForecast(count = 12) {
+    return this.rollingWeatherTimeline.getWeatherForecast(count);
+  }
+
+  /**
+   * Get the current weather event from rolling timeline
+   * @returns {Object} Current weather event
+   */
+  getCurrentWeatherEvent() {
+    return this.rollingWeatherTimeline.getCurrentWeatherEvent();
+  }
+
+  /**
+   * Get the full rolling timeline
+   * @returns {Array} Complete timeline of weather events
+   */
+  getFullRollingTimeline() {
+    return this.rollingWeatherTimeline.getFullTimeline();
+  }
+
+  /**
+   * Get rolling timeline debug information
+   * @returns {Object} Debug information
+   */
+  getRollingTimelineDebugInfo() {
+    return this.rollingWeatherTimeline.getDebugInfo();
   }
 }
 
