@@ -1,110 +1,122 @@
-// engine/weather/WeatherSystem.js
-// Handles weather generation and conditional event triggers
+const fs = require("fs");
 
 class WeatherSystem {
-  constructor(weatherData) {
-    this.weatherData = weatherData;
-    this.gameStartTime = Date.now(); // Seed for deterministic weather
-    this.predeterminedForecast = null; // Cached predetermined forecast
+  constructor(light = 0.5, temp = 0.5, humidity = 0.5, month = null) {
+    this.light = light;
+    this.temp = temp;
+    this.humidity = humidity;
+    this.month = month; // store the month internally
   }
 
-  // Seeded random number generator for deterministic weather
-  _seededRandom(seed) {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
+  updateForMonth(month, boundsData) {
+    this.month = month.toLowerCase();
+    const b = boundsData.monthlyBounds[this.month];
+    if (!b) throw new Error(`No bounds found for month: ${month}`);
+
+    // pick random value within bounds
+    this.light = b.light.min + Math.random() * (b.light.max - b.light.min);
+    this.temp = b.temp.min + Math.random() * (b.temp.max - b.temp.min);
+    this.humidity = b.humidity.min + Math.random() * (b.humidity.max - b.humidity.min);
+
+    return this._clamp();
   }
 
-  // Generate deterministic weather forecast for given number of actions
-  getPredeterminedForecast(startingSeason, startingActionsLeft, totalActions) {
-    // Use consistent seed based on game start time
-    let seed = this.gameStartTime;
-    const forecast = [];
-    
-    let currentSeason = startingSeason;
-    let actionsLeftInSeason = startingActionsLeft;
-    const actionsPerSeason = 3; // Standard actions per season
-    
-    for (let action = 1; action <= totalActions; action++) {
-      // Handle season transitions
-      if (actionsLeftInSeason <= 0) {
-        currentSeason = this._getNextSeason(currentSeason);
-        actionsLeftInSeason = actionsPerSeason;
-      }
-      actionsLeftInSeason--;
-      
-      // Get weather for this season using seeded random
-      const seasonWeather = this.weatherData[currentSeason];
-      const totalWeight = seasonWeather.reduce((sum, event) => sum + event.pct, 0);
-      
-      // Use seeded random to pick event
-      const randomValue = this._seededRandom(seed) * totalWeight;
-      let accumulator = 0;
-      let selectedEvent = seasonWeather[seasonWeather.length - 1].event; // fallback
-      
-      for (const event of seasonWeather) {
-        accumulator += event.pct;
-        if (randomValue <= accumulator) {
-          selectedEvent = event.event;
-          break;
-        }
-      }
-      
-      forecast.push(selectedEvent);
-      seed += 1; // Increment seed for next action
-    }
-    
-    return forecast;
+  // Return as array (for calculations, visualization, etc.)
+  asVector() {
+    return [this.light, this.temp, this.humidity];
   }
 
-  // Helper to get next season
-  _getNextSeason(currentSeason) {
-    const seasons = ['spring', 'summer', 'autumn', 'winter'];
-    const currentIndex = seasons.indexOf(currentSeason);
-    return seasons[(currentIndex + 1) % seasons.length];
-  }
-  // Pick a weather event from the current season's distribution (use predetermined if available)
-  pickWeatherEvent(season, actionNumber = null) {
-    // If we have a predetermined forecast and action number, use that
-    if (this.predeterminedForecast && actionNumber && actionNumber <= this.predeterminedForecast.length) {
-      return this.predeterminedForecast[actionNumber - 1];
-    }
-    
-    // Otherwise use random selection (legacy behavior)
-    const table = this.weatherData[season];
-    const r = Math.random() * 100;
-    let acc = 0;
-    for (const row of table) {
-      acc += row.pct;
-      if (r < acc) return row.event;
-    }
-    return table[table.length - 1].event;
+  // Add another weather vector (used for monthly change accumulation)
+  add(other) {
+    this.light += other.light;
+    this.temp += other.temp;
+    this.humidity += other.humidity;
+    return this._clamp();
   }
 
-  // Set predetermined forecast for consistent predictions
-  setPredeterminedForecast(forecast) {
-    this.predeterminedForecast = forecast;
+  // Scale all values (used for dampening or seasonal modifiers)
+  scale(factor) {
+    this.light *= factor;
+    this.temp *= factor;
+    this.humidity *= factor;
+    return this._clamp();
   }
 
-  // Clear predetermined forecast to return to random behavior
-  clearPredeterminedForecast() {
-    this.predeterminedForecast = null;
+  // Linear interpolation (for smooth transitions between months)
+  lerp(target, t) {
+    this.light = this.light + (target.light - this.light) * t;
+    this.temp = this.temp + (target.temp - this.temp) * t;
+    this.humidity = this.humidity + (target.humidity - this.humidity) * t;
+    return this._clamp();
   }
 
-  // Get weather conditions for an event
-  getEventConditions(season, event) {
-    const seasonEvents = this.weatherData[season];
-    const eventObj = seasonEvents.find(e => e.event === event);
-    return (eventObj && eventObj.conditions) ? eventObj.conditions : [];
+  // Clamp values to 0–1 range
+  _clamp() {
+    this.light = Math.max(0, Math.min(1, this.light));
+    this.temp = Math.max(0, Math.min(1, this.temp));
+    this.humidity = Math.max(0, Math.min(1, this.humidity));
+    return this;
   }
 
-  // Get random seasonal weather for season start
-  getRandomSeasonalWeather(season) {
-    const seasonWeather = this.weatherData[season];
-    if (seasonWeather && seasonWeather.length > 0) {
-      const idx = Math.floor(Math.random() * seasonWeather.length);
-      return seasonWeather[idx];
-    }
-    return null;
+  /**
+   * Create a WeatherSystem instance using real-world monthly bounds
+   * from weather.json instead of random values.
+   * @param {string} month - Short month name (e.g. "jan", "feb").
+   * @param {object} boundsData - The parsed JSON data from weather.json.
+   */
+  static fromMonthlyBounds(month, boundsData) {
+    const m = month.toLowerCase();
+    const b = boundsData.monthlyBounds[m];
+
+    if (!b) throw new Error(`No bounds found for month: ${month}`);
+
+    // Generate a value within the min/max range for each attribute.
+    const light = b.light.min + Math.random() * (b.light.max - b.light.min);
+    const temp = b.temp.min + Math.random() * (b.temp.max - b.temp.min);
+    const humidity = b.humidity.min + Math.random() * (b.humidity.max - b.humidity.min);
+
+    return new WeatherSystem(light, temp, humidity);
+  }
+
+  /**
+   * Convenience loader: read weather.json and build system for current month.
+   * @param {string} path - Path to weather.json.
+   */
+  static fromFile(path = "./weather.json") {
+    const json = JSON.parse(fs.readFileSync(path, "utf8"));
+    const currentMonth = new Date().toLocaleString("en-US", { month: "short" }).toLowerCase();
+    return WeatherSystem.fromMonthlyBounds(currentMonth, json);
+  }
+
+  /**
+   * Applies monthly clamps to ensure current values stay within bounds.
+   */
+  applyMonthlyClamp(weather, month, boundsData) {
+    const b = boundsData.monthlyBounds[month.toLowerCase()];
+    weather.light = Math.min(b.light.max, Math.max(b.light.min, weather.light));
+    weather.temp  = Math.min(b.temp.max,  Math.max(b.temp.min,  weather.temp));
+    weather.humidity = Math.min(b.humidity.max, Math.max(b.humidity.min, weather.humidity));
+    return weather;
+  }
+
+  /**
+   * Calculates a simplified relative pressure value (0-1) based on
+   * normalized temperature and humidity vectors.
+   */
+  getRelativePressureFromVectors(temp_vector, humidity_vector) {
+    const inverted_temp = 1 - temp_vector;
+    const inverted_humidity = 1 - humidity_vector;
+    const temp_weight = 0.7;
+    const humidity_weight = 0.3;
+    const combined_value = (inverted_temp * temp_weight) + (inverted_humidity * humidity_weight);
+    const exponent = 2;
+    let pressure = Math.pow(combined_value, exponent);
+    return Math.max(0, Math.min(1, pressure));
+  }
+
+  // Debug helper
+  toString() {
+    return `Month: ${this.month || "unknown"} ☀️ Light: ${this.light.toFixed(2)}, 🌡️ Temp: ${this.temp.toFixed(2)}, 💧 Humidity: ${this.humidity.toFixed(2)}`;
   }
 }
 

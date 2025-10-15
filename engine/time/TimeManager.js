@@ -2,29 +2,21 @@
 
 class TimeManager {
   constructor() {
-    this.seasons = ["spring", "summer", "autumn", "winter"];
-    this.seasonIndex = 0;
-    this.currentSeason = this.seasons[this.seasonIndex];
-    this.actionsPerSeason = 3;
+    this.months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   }
 
-  getCurrentSeason() {
-    return this.currentSeason;
+  getCurrentMonth() {
+    return this.months[this.monthIndex];
   }
 
-  advanceSeason() {
-    this.seasonIndex = (this.seasonIndex + 1) % this.seasons.length;
-    this.currentSeason = this.seasons[this.seasonIndex];
-    return this.currentSeason;
+  advanceMonth() {
+    this.monthIndex = (this.monthIndex + 1) % this.months.length;
+    this.currentMonth = this.months[this.monthIndex];
+    return this.currentMonth;
   }
 
-  getActionsPerSeason() {
-    return this.actionsPerSeason;
-  }
-
-  // Get all seasons (useful for checking valid seasons for plant needs)
-  getAllSeasons() {
-    return [...this.seasons];
+  getAllMonths() {
+    return [...this.months];
   }
 }
 
