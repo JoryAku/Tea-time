@@ -3,7 +3,6 @@
 const assert = require('assert');
 const TimeManager = require('../../engine/time/TimeManager');
 const WeatherSystem = require('../../engine/weather/WeatherSystem');
-const cardsData = require('../../data/Cards.json');
 const weatherData = require('../../data/weather.json');
 
 console.log('=== Testing Modular Engine Structure ===\n');
@@ -13,34 +12,34 @@ console.log('Test 1: Testing individual subsystem instantiation');
 const timeManager = new TimeManager();
 const weatherSystem = new WeatherSystem(weatherData);
 
-console.log(`✅ TimeManager created: ${timeManager.getCurrentSeason()}`);
+console.log(`✅ TimeManager created: ${timeManager.getCurrentMonth()}`);
 console.log(`✅ WeatherSystem created: ${Object.keys(weatherSystem.weatherData).length} seasons`);
 
 // Add assertions for subsystem creation
-assert.ok(timeManager.getCurrentSeason(), "TimeManager should have a current season");
+assert.ok(timeManager.getCurrentMonth(), "TimeManager should have a current month");
 assert.ok(Object.keys(weatherSystem.weatherData).length > 0, "WeatherSystem should have weather data");
 
-console.log(`✅ Engine created with current season: ${engine.getCurrentSeason()}`);
+console.log(`✅ Engine created with current month: ${engine.getCurrentMonth()}`);
 
 // Add assertions for engine creation
-assert.ok(engine.getCurrentSeason(), "Engine should have a current season");
+assert.ok(engine.getCurrentMonth(), "Engine should have a current month");
 
 // Test 3: Time management
 console.log('Test 3: Testing time management through engine');
-const initialSeason = engine.getCurrentSeason();
+const initialMonth = engine.getCurrentMonth();
 engine.endSeasonProcessing(); // This should advance the season
-const newSeason = engine.getCurrentSeason();
+const newMonth = engine.getCurrentMonth();
 
-console.log(`✅ Season advanced from ${initialSeason} to ${newSeason}`);
+console.log(`✅ Month advanced from ${initialMonth} to ${newMonth}`);
 
 // Add assertions for time management
-assert.notEqual(newSeason, initialSeason, "Season should have advanced");
-assert.ok(engine.player.actionsLeft > 0, "Player should have actions after season advance");
+assert.notEqual(newMonth, initialMonth, "Month should have advanced");
+assert.ok(engine.player.actionsLeft > 0, "Player should have actions after month advance");
 
 // Test 4: Weather system integration
 console.log('Test 4: Testing weather system integration');
-const randomEvent = engine.weatherSystem.pickWeatherEvent(engine.getCurrentSeason());
-const eventConditions = engine.weatherSystem.getEventConditions(engine.getCurrentSeason(), randomEvent);
+const randomEvent = engine.weatherSystem.pickWeatherEvent(engine.getCurrentMonth());
+const eventConditions = engine.weatherSystem.getEventConditions(engine.getCurrentMonth(), randomEvent);
 
 console.log(`✅ Weather event generated: ${randomEvent}`);
 console.log(`✅ Event conditions: [${eventConditions.join(', ')}]\n`);
