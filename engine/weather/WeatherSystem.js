@@ -1,16 +1,35 @@
 const fs = require("fs");
 
 class WeatherSystem {
+  /**
+   * Constructor supports two modes:
+   * - new WeatherSystem(boundsData) -> stores bounds as weatherData
+   * - new WeatherSystem(light, temp, humidity, month)
+   */
   constructor(light = 0.5, temp = 0.5, humidity = 0.5, month = null) {
+    // If the first argument is an object, assume it's bounds/weather data
+    if (light && typeof light === 'object' && !Array.isArray(light)) {
+      this.weatherData = light; // store bounds for later use
+      // initialize with neutral values
+      this.light = 0.5;
+      this.temp = 0.5;
+      this.humidity = 0.5;
+      this.month = null;
+      return;
+    }
+
     this.light = light;
     this.temp = temp;
     this.humidity = humidity;
     this.month = month; // store the month internally
+    this.weatherData = null;
   }
 
   updateForMonth(month, boundsData) {
     this.month = month.toLowerCase();
-    const b = boundsData.monthlyBounds[this.month];
+    const bsource = boundsData || this.weatherData;
+    if (!bsource) throw new Error('No bounds data provided to updateForMonth');
+    const b = bsource.monthlyBounds[this.month];
     if (!b) throw new Error(`No bounds found for month: ${month}`);
 
     // pick random value within bounds

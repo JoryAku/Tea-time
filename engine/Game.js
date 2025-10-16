@@ -1,11 +1,12 @@
 const TeaTimeEngine = require("./engine");
 const weatherData = require("../data/weather.json");
+const calendarData = require("../data/calendar.json");
 
 // Game class now delegates to the new modular engine
 class Game {
   constructor() {
     // Initialize the new modular engine
-    this.engine = new TeaTimeEngine(weatherData);
+    this.engine = new TeaTimeEngine(weatherData, calendarData);
     
     // Expose commonly used properties for backward compatibility
     this.player = this.engine.player;
@@ -22,13 +23,8 @@ class Game {
     return this.engine.waitAction();
   }
 
-  triggerWeather() {
-    return this.engine.triggerWeather();
-  }
-
-  // Expose internal methods for testing
-  applyWeather(event) {
-    return this.engine.applyWeather(event);
+  createTimeline(months) {
+    return this.engine.createTimeline(months);
   }
 }
 
