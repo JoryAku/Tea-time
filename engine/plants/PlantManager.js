@@ -37,8 +37,12 @@ class PlantManager {
     // Update growth using health
     plant.growth = clamp01((plant.growth || 0) + plant.health * 0.05);
 
-    // Determine lifecycle stage from growth
-    plant.stage = stageForGrowth(plant.growth, plant.health);
+    // Determine lifecycle stage from growth only if not explicitly set
+    // Tests and external code may initialize `plant.stage` (e.g. 'flowering'),
+    // so avoid overwriting an explicit stage value here.
+    if (!plant.stage) {
+      plant.stage = stageForGrowth(plant.growth, plant.health);
+    }
 
     // Death check
     if (plant.health <= 0) {

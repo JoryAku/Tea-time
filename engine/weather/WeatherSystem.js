@@ -1,11 +1,6 @@
 const fs = require("fs");
 
 class WeatherSystem {
-  /**
-   * Constructor supports two modes:
-   * - new WeatherSystem(boundsData) -> stores bounds as weatherData
-   * - new WeatherSystem(light, temp, humidity, month)
-   */
   constructor(light = 0.5, temp = 0.5, humidity = 0.5, month = null) {
     // If the first argument is an object, assume it's bounds/weather data
     if (light && typeof light === 'object' && !Array.isArray(light)) {

@@ -48,8 +48,8 @@
           "growthVector": [0.01, 0.02, 0, 0],
           "stressDecay": 0.03,
           "transitionThresholds": { "growth": 1.0, "health": 0.2 },
-          "durationMonths": 1,
-          "next": "mature"
+          "durationMonths": 3,
+          "next": "seed"
         },
         "dead": {
           "ideal": [0.4, 0.5, 0.8, 0.6],
