@@ -1,5 +1,6 @@
 const TimeManager = require('./time/TimeManager');
 const WeatherSystem = require('./weather/WeatherSystem');
+const weatherVane = require('./weather/weatherVane');
 const Player = require('./Player');
 const Timeline = require('./time/Timeline');
 const PlantManager = require('./plants/PlantManager');
@@ -29,6 +30,13 @@ class TeaTimeEngine {
     }
     // Initialize player
     this.player = new Player();
+    // Populate initial weatherVane interpretation so UI has a value at startup
+    try {
+      const interpStart = weatherVane.interpretFromWeatherSystem(this.weatherSystem);
+      this.player.weatherVane = interpStart;
+    } catch (e) {
+      this.player.weatherVane = null;
+    }
     // Initialize plant manager with card definitions
     try {
       this.plantManager = new PlantManager(cardsData);
@@ -75,6 +83,15 @@ class TeaTimeEngine {
     console.log(`\n⏭ Advanced month -> ${newMonth}`);
     console.log(`🌦 Weather: ${this.weatherSystem ? this.weatherSystem.toString() : 'unknown'}`);
 
+    // Update the player's weatherVane (human readable interpretation)
+    try {
+      // can pass options here later (e.g. configurable threshold)
+      const interp = weatherVane.interpretFromWeatherSystem(this.weatherSystem);
+      this.player.weatherVane = interp;
+    } catch (e) {
+      // ignore
+    }
+
     // Update plants in the player's garden with the new monthly weather
     try {
       if (this.plantManager && Array.isArray(this.player.garden) && this.player.garden.length > 0) {
@@ -108,6 +125,13 @@ class TeaTimeEngine {
     if (this.weatherSystem && this.weatherSystem.month !== currentMonth) {
       this.weatherSystem.updateForMonth(currentMonth, this.weatherData);
     }
+    try {
+      const interp = weatherVane.interpretFromWeatherSystem(this.weatherSystem);
+      this.player.weatherVane = interp;
+    } catch (e) {
+      // ignore
+    }
+
     console.log(`\n🌦 Weather: ${this.weatherSystem.toString()}`);
   }
 

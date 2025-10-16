@@ -1,7 +1,7 @@
 class Player {
   constructor() {
     this.garden = [];   // planted cards (plants that are in garden)
-    this.weatherVane = []; // view current weather conditions
+    this.weatherVane = null; // view current weather conditions (interpreted)
     this.calendar = []; // current months planted cards
     this.startingMonth = "jan"; // starting month of the game
   }

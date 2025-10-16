@@ -13,7 +13,16 @@ console.log("=== Tea Time (Terminal) ===");
 function showState() {
   console.log(`\n=== ${game.currentMonth} ===`);
   try {
-    if (game.engine && game.engine.weatherSystem) {
+    const pw = game.peekWeather && typeof game.peekWeather === 'function' ? game.peekWeather() : null;
+    if (pw && pw.interpretation) {
+      console.log('\nCurrent weather:');
+      if (pw.interpretation.condition === 'Mixed' && Array.isArray(pw.interpretation.candidates)) {
+        const names = pw.interpretation.candidates.map(c => c.name).join(', ');
+        console.log(`Mixed conditions possible: ${names} — ${pw.interpretation.description}`);
+      } else {
+        console.log(`${pw.interpretation.condition} — ${pw.interpretation.description}`);
+      }
+    } else if (game.engine && game.engine.weatherSystem) {
       console.log('\nCurrent weather:');
       console.log(game.engine.weatherSystem.toString());
     } else if (game.player && game.player.weatherVane) {
