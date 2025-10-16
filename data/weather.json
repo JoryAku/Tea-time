@@ -1,29 +1,16 @@
 {
-  "spring": [
-    { "event": "rain", "pct": 30, "conditions": ["water"] },
-    { "event": "sun", "pct": 25, "conditions": ["sunlight"] },
-    { "event": "cloud", "pct": 10, "conditions": ["cloud"] },
-    { "event": "wind", "pct": 10, "conditions": ["wind"] }
-  ],
-  "summer": [
-    { "event": "rain", "pct": 15, "conditions": ["water"] },
-    { "event": "sun", "pct": 25, "conditions": ["sunlight", "heat"] },
-    { "event": "drought", "pct": 15, "conditions": ["drought", "heat"] },
-    { "event": "thunderstorm", "pct": 10, "conditions": ["water", "wind"] },
-    { "event": "clear_night", "pct": 5, "conditions": ["clear_night"] }
-  ],
-  "autumn": [
-    { "event": "frost", "pct": 5, "conditions": ["frost"] },
-    { "event": "sun", "pct": 20, "conditions": ["sunlight"] },
-    { "event": "rain", "pct": 15, "conditions": ["water"] },
-    { "event": "wind", "pct": 20, "conditions": ["wind"] },
-    { "event": "cloud", "pct": 15, "conditions": ["cloud"] }
-  ],
-  "winter": [
-    { "event": "rain", "pct": 30, "conditions": ["water", "rot"] },
-    { "event": "frost", "pct": 10, "conditions": ["frost"] },
-    { "event": "cloud", "pct": 30, "conditions": ["cloud"] },
-    { "event": "snow", "pct": 5, "conditions": ["snow"] },
-    { "event": "sun", "pct": 25, "conditions": ["sunlight"] }
-  ]
+  "monthlyBounds": {
+    "jan":  { "light": { "min": 0.6,  "max": 1.0  }, "temp": { "min": 0.65, "max": 0.95 }, "humidity": { "min": 0.733, "max": 0.833 } },
+    "feb":  { "light": { "min": 0.58, "max": 0.95 }, "temp": { "min": 0.65, "max": 0.95 }, "humidity": { "min": 0.750, "max": 0.850 } },
+    "mar":  { "light": { "min": 0.5,  "max": 0.9  }, "temp": { "min": 0.55, "max": 0.85 }, "humidity": { "min": 0.772, "max": 0.872 } },
+    "apr":  { "light": { "min": 0.4,  "max": 0.75 }, "temp": { "min": 0.4,  "max": 0.7  }, "humidity": { "min": 0.768, "max": 0.868 } },
+    "may":  { "light": { "min": 0.3,  "max": 0.6  }, "temp": { "min": 0.3,  "max": 0.55 }, "humidity": { "min": 0.787, "max": 0.887 } },
+    "jun":  { "light": { "min": 0.2,  "max": 0.45 }, "temp": { "min": 0.2,  "max": 0.4  }, "humidity": { "min": 0.805, "max": 0.905 } },
+    "jul":  { "light": { "min": 0.2,  "max": 0.5  }, "temp": { "min": 0.18, "max": 0.38 }, "humidity": { "min": 0.796, "max": 0.896 } },
+    "aug":  { "light": { "min": 0.25, "max": 0.7  }, "temp": { "min": 0.25, "max": 0.55 }, "humidity": { "min": 0.779, "max": 0.879 } },
+    "sep":  { "light": { "min": 0.35, "max": 0.8  }, "temp": { "min": 0.35, "max": 0.65 }, "humidity": { "min": 0.739, "max": 0.839 } },
+    "oct":  { "light": { "min": 0.45, "max": 0.9  }, "temp": { "min": 0.45, "max": 0.8  }, "humidity": { "min": 0.747, "max": 0.847 } },
+    "nov":  { "light": { "min": 0.55, "max": 0.95 }, "temp": { "min": 0.55, "max": 0.9  }, "humidity": { "min": 0.730, "max": 0.830 } },
+    "dec":  { "light": { "min": 0.6,  "max": 0.98 }, "temp": { "min": 0.6,  "max": 0.9  }, "humidity": { "min": 0.734, "max": 0.834 } }
+  }
 }

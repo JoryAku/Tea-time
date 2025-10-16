@@ -2,29 +2,30 @@
 
 class TimeManager {
   constructor() {
-    this.seasons = ["spring", "summer", "autumn", "winter"];
-    this.seasonIndex = 0;
-    this.currentSeason = this.seasons[this.seasonIndex];
-    this.actionsPerSeason = 3;
+    this.months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    // start at January by default
+    this.monthIndex = 0;
+    this.currentMonth = this.months[this.monthIndex];
   }
 
-  getCurrentSeason() {
-    return this.currentSeason;
+  getCurrentMonth() {
+    return this.months[this.monthIndex];
   }
 
-  advanceSeason() {
-    this.seasonIndex = (this.seasonIndex + 1) % this.seasons.length;
-    this.currentSeason = this.seasons[this.seasonIndex];
-    return this.currentSeason;
+  advanceMonth() {
+    this.monthIndex = (this.monthIndex + 1) % this.months.length;
+    this.currentMonth = this.months[this.monthIndex];
+    return this.currentMonth;
   }
 
-  getActionsPerSeason() {
-    return this.actionsPerSeason;
+  getAllMonths() {
+    return [...this.months];
   }
 
-  // Get all seasons (useful for checking valid seasons for plant needs)
-  getAllSeasons() {
-    return [...this.seasons];
+  // How many actions make up one month in the timeline simulation
+  getActionsPerMonth() {
+    // By default each action represents one month in simplified model
+    return 1;
   }
 }
 

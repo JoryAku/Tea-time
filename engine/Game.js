@@ -1,23 +1,50 @@
 const TeaTimeEngine = require("./engine");
-const cardsData = require("../data/Cards.json");
 const weatherData = require("../data/weather.json");
+const calendarData = require("../data/calendar.json");
+const cards = require('../data/Cards.json');
 
 // Game class now delegates to the new modular engine
 class Game {
   constructor() {
     // Initialize the new modular engine
-    this.engine = new TeaTimeEngine(cardsData, weatherData);
+    this.engine = new TeaTimeEngine(weatherData, calendarData);
     
     // Expose commonly used properties for backward compatibility
     this.player = this.engine.player;
-    this.cards = this.engine.cardsData;
     this.weather = this.engine.weatherData;
-    this.actionsPerSeason = this.engine.getActionsPerSeason();
+
+    // Seed a default tea plant into the garden on game start
+    try {
+      const plantDefs = (cards && cards.plants) || [];
+      const teaDef = plantDefs.find(p => p.id === 'tea_plant' || p.id === 'tea');
+      if (teaDef) {
+        // Try to pull an 'ideal' vector from the 'seed' state if available
+        let idealVec = null;
+        if (teaDef.states && teaDef.states.seed && Array.isArray(teaDef.states.seed.ideal)) {
+          const arr = teaDef.states.seed.ideal;
+          idealVec = { light: arr[0], temp: arr[1], humidity: arr[2], wind: arr[3] };
+        }
+
+        const starter = {
+          id: teaDef.id || 'tea_plant',
+          name: teaDef.name || 'Tea Plant',
+          species: teaDef.species || null,
+          ideal: idealVec || { light: 0.6, temp: 0.6, humidity: 0.7, wind: 0.1 },
+          health: 0.6,
+          growth: 0.0,
+          stage: 'seed'
+        };
+
+        this.player.garden.push(starter);
+      }
+    } catch (e) {
+      // ignore seeding errors to keep game initialization robust
+    }
   }
 
-  // Delegate to engine for current season
-  get currentSeason() {
-    return this.engine.getCurrentSeason();
+  // Delegate to engine for current month
+  get currentMonth() {
+    return this.engine.getCurrentMonth();
   }
 
   // Delegate methods to engine
@@ -25,76 +52,23 @@ class Game {
     return this.engine.waitAction();
   }
 
-  harvestSeedFromGarden(idx) {
-    return this.engine.harvestSeedFromGarden(idx);
+  createTimeline(months) {
+    return this.engine.createTimeline(months);
   }
 
-  plantSeedFromZone(zone, idx) {
-    return this.engine.plantSeedFromZone(zone, idx);
-  }
-
-  triggerWeather() {
-    return this.engine.triggerWeather();
-  }
-
-  endSeasonProcessing() {
-    return this.engine.endSeasonProcessing();
-  }
-
-  peekWeather(n = 1) {
-    return this.engine.peekWeather(n);
-  }
-
-  // For backward compatibility
-  createCard(cardId, state = null) {
-    return this.engine.createCard(cardId, state);
-  }
-
-  // Expose internal methods for testing
-  applyWeather(event) {
-    return this.engine.applyWeather(event);
-  }
-
-  // Delegate Green Tea prediction method for easier access
-  simulatePlantFuture(plantCard, actionsToSimulate = 48) {
-    return this.engine.simulatePlantFuture(plantCard, actionsToSimulate);
-  }
-
-  // Delegate Green Tea consumption method
-  consumeGreenTeaWithPlantSelection(teaCard, plantIndex) {
-    return this.engine.consumeGreenTeaWithPlantSelection(teaCard, plantIndex);
-  }
-
-  // Delegate Oolong Tea consumption method
-  consumeOolongTeaWithPlantSelection(teaCard, plantIndex, harvestChoice = null, cachedTimeline = null) {
-    return this.engine.consumeOolongTeaWithPlantSelection(teaCard, plantIndex, harvestChoice, cachedTimeline);
-  }
-
-  // Delegate Black Tea consumption method
-  consumeBlackTeaWithPlantSelection(teaCard, plantIndex, targetAction = null) {
-    return this.engine.consumeBlackTeaWithPlantSelection(teaCard, plantIndex, targetAction);
-  }
-
-  // Delegate plant ID assignment
-  assignPlantId(plant) {
-    return this.engine.assignPlantId(plant);
-  }
-
-  // === Timeline System Methods ===
-
-  // Create a comprehensive timeline for all garden plants
-  createTimeline(actionsToSimulate = 48) {
-    return this.engine.createTimeline(actionsToSimulate);
-  }
-
-  // Get detailed forecast with timeline data
-  getDetailedForecast(actionsToSimulate = 12) {
-    return this.engine.getDetailedForecast(actionsToSimulate);
-  }
-
-  // Peek at weather using timeline system
-  peekTimelineWeather(n = 1) {
-    return this.engine.peekTimelineWeather(n);
+  // Return a lightweight weather snapshot for UI/tests
+  peekWeather() {
+    if (!this.engine || !this.engine.weatherSystem) return null;
+    const ws = this.engine.weatherSystem;
+    return {
+      month: ws.month,
+      light: ws.light,
+      temp: ws.temp,
+      humidity: ws.humidity,
+      pressureHpa: ws.getPressureHpa ? ws.getPressureHpa() : null,
+      windVector: ws.windVector || null,
+      toString: () => ws.toString(),
+    };
   }
 }
 
