@@ -67,6 +67,7 @@ class Game {
       humidity: ws.humidity,
       pressureHpa: ws.getPressureHpa ? ws.getPressureHpa() : null,
       windVector: ws.windVector || null,
+      interpretation: this.player && this.player.weatherVane ? this.player.weatherVane : null,
       toString: () => ws.toString(),
     };
   }
