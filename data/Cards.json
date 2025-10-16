@@ -7,99 +7,65 @@
       "lifespan": { "min": 30, "max": 50 },
       "states": {
         "seed": {
-          "needs": { "resources": ["water"], "season": ["spring", "summer"] },
-          "vulnerabilities": [
-            { "event": "drought", "outcome": "die" }
-          ],
-          "actions": {
-            "plant": { "effect": "move_card", "location": "garden", "newState": "seedling" },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 }
-          },
-          "transitions": [
-            { "to": "seedling", "actions": { "min": 1, "max": 2 } }
-          ]
+          "ideal": [0.6, 0.6, 0.8, 0.5],
+          "tolerance": 0.15,
+          "growthVector": [0.02, 0.01, 0, 0],
+          "stressDecay": 0.05,
+          "transitionThresholds": { "growth": 1.0, "health": 0.4 },
+          "durationMonths": 2,
+          "next": "seedling"
         },
         "seedling": {
-          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer"] },
-          "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" }
-          ],
-          "actions": {
-            "clone": { "effect": "add_card", "target": "tea_plant", "state": "seedling", "location": "hand" },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
-          },
-          "transitions": [
-            { "to": "mature", "actions": { "min": 36, "max": 36 } }
-          ]
+          "ideal": [0.7, 0.65, 0.75, 0.55],
+          "tolerance": 0.1,
+          "growthVector": [0.03, 0.02, 0, 0],
+          "stressDecay": 0.04,
+          "transitionThresholds": { "growth": 1.0, "health": 0.4 },
+          "durationMonths": 36,
+          "next": "mature"
         },
         "mature": {
-          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer", "autumn", "winter"] },
-          "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" },
-            { "event": "pests", "outcome": "die" }
-          ],
-          "actions": {
-            "harvest": { "effect": "add_card", "target": "tea_leaf_raw", "location": "kitchen", "removeOriginal": false },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
-          },
-          "transitions": [
-            { "to": "flowering", "actions": { "min": 4, "max": 12 } }
-          ]
+          "ideal": [0.8, 0.7, 0.6, 0.5],
+          "tolerance": 0.2,
+          "growthVector": [0.01, 0.02, 0, 0],
+          "stressDecay": 0.03,
+          "transitionThresholds": { "growth": 0.8, "health": 0.3 },
+          "durationMonths": 0,
+          "next": "flowering"
         },
         "flowering": {
-          "needs": { "resources": ["sunlight", "water"], "season": ["spring"] },
-          "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" },
-            { "event": "pests", "outcome": "die" },
-            { "event": "disease", "outcome": "die" }
-          ],
-          "actions": {
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
-          },
-          "transitions": [
-            { "to": "fruiting", "actions": { "min": 3, "max": 3 } }
-          ]
+          "ideal": [0.85, 0.75, 0.65, 0.5],
+          "tolerance": 0.12,
+          "growthVector": [0.015, 0.015, 0, 0],
+          "stressDecay": 0.03,
+          "transitionThresholds": { "growth": 0.8, "health": 0.3 },
+          "durationMonths": 1,
+          "next": "fruiting"
         },
         "fruiting": {
-          "needs": { "resources": ["sunlight", "water"], "season": ["summer"] },
-          "vulnerabilities": [
-            { "event": "drought", "outcome": "die" },
-            { "event": "frost", "outcome": "die" },
-            { "event": "pests", "outcome": "die" },
-            { "event": "disease", "outcome": "die" }
-          ],
-          "actions": {
-            "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" },
-            "water": { "effect": "protect_plant", "condition": "water", "duration": 6 },
-            "shelter": { "effect": "protect_plant", "condition": "sunlight", "duration": 6 }
-          },
-          "transitions": [
-            { "to": "seed", "actions": { "min": 3, "max": 3 } }
-          ]
+          "ideal": [0.85, 0.8, 0.7, 0.55],
+          "tolerance": 0.1,
+          "growthVector": [0.01, 0.02, 0, 0],
+          "stressDecay": 0.03,
+          "transitionThresholds": { "growth": 1.0, "health": 0.2 },
+          "durationMonths": 1,
+          "next": "mature"
         },
         "dead": {
-          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer", "autumn", "winter"] },
-          "vulnerabilities": [],
-          "actions": {
-            "harvest_seed": { "effect": "add_card", "target": "tea_plant", "location": "shed", "state": "seed" }
-          },
-          "transitions": [
-            { "to": "compost", "actions": { "min": 3, "max": 6 } }
-          ]
+          "ideal": [0.4, 0.5, 0.8, 0.6],
+          "tolerance": 0,
+          "growthVector": [0, 0, 0, 0],
+          "stressDecay": 0,
+          "transitionThresholds": { "growth": 0, "health": 0 },
+          "next": "compost"
         },
         "compost": {
-          "needs": { "resources": ["sunlight", "water"], "season": ["spring", "summer"] },
-          "vulnerabilities": [],
-          "actions": {
-            "compost": { "effect": "add_card", "target": "fertilizer_token", "location": "shed" }
-          },
-          "transitions": []
+          "ideal": [0, 0, 0, 0],
+          "tolerance": 0,
+          "growthVector": [0, 0, 0, 0],
+          "stressDecay": 0,
+          "transitionThresholds": {},
+          "next": null
         }
       }
     }

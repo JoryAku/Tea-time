@@ -2,6 +2,8 @@ const TimeManager = require('./time/TimeManager');
 const WeatherSystem = require('./weather/WeatherSystem');
 const Player = require('./Player');
 const Timeline = require('./time/Timeline');
+const PlantManager = require('./plants/PlantManager');
+const cardsData = require('../data/Cards.json');
 
 class TeaTimeEngine {
   constructor(weatherData, calendarData) {
@@ -27,6 +29,13 @@ class TeaTimeEngine {
     }
     // Initialize player
     this.player = new Player();
+    // Initialize plant manager with card definitions
+    try {
+      this.plantManager = new PlantManager(cardsData);
+    } catch (e) {
+      // if PlantManager fails to initialize, continue without plants
+      this.plantManager = null;
+    }
     this.months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   }
 
@@ -65,6 +74,30 @@ class TeaTimeEngine {
 
     console.log(`\n⏭ Advanced month -> ${newMonth}`);
     console.log(`🌦 Weather: ${this.weatherSystem ? this.weatherSystem.toString() : 'unknown'}`);
+
+    // Update plants in the player's garden with the new monthly weather
+    try {
+      if (this.plantManager && Array.isArray(this.player.garden) && this.player.garden.length > 0) {
+        const weatherVector = {
+          light: this.weatherSystem ? this.weatherSystem.light : 0.5,
+          temp: this.weatherSystem ? this.weatherSystem.temp : 0.5,
+          humidity: this.weatherSystem ? this.weatherSystem.humidity : 0.5,
+          // use wind magnitude as the scalar wind component expected by PlantManager
+          wind: this.weatherSystem && this.weatherSystem.windVector ? this.weatherSystem.windVector.magnitude : 0
+        };
+
+        this.player.garden.forEach((plant) => {
+          try {
+            this.plantManager.updatePlant(plant, weatherVector);
+          } catch (err) {
+            // don't let a single plant failure break the loop
+            console.error('Warning: plant update failed', err && err.message);
+          }
+        });
+      }
+    } catch (err) {
+      // ignore whole-plant update errors for now
+    }
 
     return newMonth;
   }

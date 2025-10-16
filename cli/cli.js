@@ -23,7 +23,24 @@ function showState() {
   } catch (e) {
     // ignore
   }
-  console.log('\nGarden is empty.');
+  try {
+    const garden = (game.player && Array.isArray(game.player.garden)) ? game.player.garden : [];
+    if (garden.length === 0) {
+      console.log('\nGarden is empty.');
+    } else {
+      console.log('\nGarden:');
+      garden.forEach((p, i) => {
+        const id = p.id || p.name || `plant-${i + 1}`;
+        const name = p.name || p.id || 'Unknown Plant';
+        const stage = p.stage || 'unknown';
+        const health = typeof p.health === 'number' ? p.health.toFixed(2) : 'n/a';
+        const growth = typeof p.growth === 'number' ? p.growth.toFixed(2) : 'n/a';
+        console.log(`  ${i + 1}) ${name} (${id}) — stage: ${stage}, health: ${health}, growth: ${growth}`);
+      });
+    }
+  } catch (e) {
+    console.log('\nGarden: (unable to display)');
+  }
 }
 
 function formatActions(actions) {

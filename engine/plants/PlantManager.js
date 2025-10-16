@@ -1,169 +1,120 @@
-// engine/plants/PlantManager.js
-// Handles plant lifecycle, genetics, vulnerabilities
 
 class PlantManager {
   constructor(cardsData) {
     this.cardsData = cardsData;
   }
 
-  // Apply weather event to a single plant
-  applyWeatherToPlant(card, event, conditions, suppressLogging = false) {
-    const stageDef = card.definition.states[card.state];
-    if (!stageDef) return;
+  /**
+   * Update a single plant using a 4D environmental vector: light,temp,humidity,wind
+   * @param {object} plant - plant instance with .ideal, .current, .health, .growth
+   * @param {object} weatherVector - { light, temp, humidity, wind }
+   */
+  updatePlant(plant, weatherVector) {
+    // Ensure weatherVector has all 4 components
+    const w = {
+      light: safeNum(weatherVector.light),
+      temp: safeNum(weatherVector.temp),
+      humidity: safeNum(weatherVector.humidity),
+      wind: safeNum(weatherVector.wind)
+    };
 
-    // Add/refresh event conditions for 2 actions
-    for (const cond of conditions) {
-      card.activeConditions[cond] = 2;
+    // Ensure plant has ideal vector
+    const ideal = plant.ideal || plant.vector && plant.vector.ideal || {
+      light: 0.5, temp: 0.5, humidity: 0.5, wind: 0.0
+    };
+
+    // Euclidean distance in 4D
+    const distance = euclideanDistance4(ideal, w);
+    // Normalize distance by max possible (sqrt(4) = 2)
+    const normalizedDistance = Math.min(1, distance / Math.SQRT2 / Math.SQRT2); // fallback safe
+    // Simpler: max distance between 0..1 vectors is sqrt(4)=2
+    const maxDist = Math.sqrt(4);
+    const match = 1 - (distance / maxDist);
+
+    // Update health (match in 0..1)
+    plant.health = clamp01((plant.health || 0) + (match - 0.5) * 0.1);
+
+    // Update growth using health
+    plant.growth = clamp01((plant.growth || 0) + plant.health * 0.05);
+
+    // Determine lifecycle stage from growth
+    plant.stage = stageForGrowth(plant.growth, plant.health);
+
+    // Death check
+    if (plant.health <= 0) {
+      plant.stage = 'dead';
     }
 
-    // Check vulnerabilities first (immediate)
-    const vulns = stageDef.vulnerabilities || [];
-    for (const v of vulns) {
-      if (v.event === event) {
-        // IMMUNITY: If plant has 'water' condition, immune to 'drought' vulnerability
-        if (event === 'drought' && card.activeConditions['water']) {
-          if (!suppressLogging) {
-            console.log(`💧 ${card.name} is immune to drought due to water condition.`);
+    // Increment stage age (assume updatePlant is called once per month)
+    plant.stageAge = (typeof plant.stageAge === 'number') ? plant.stageAge + 1 : 1;
+
+    // Duration-based transitions using cards data if available
+    try {
+      if (this.cardsData && Array.isArray(this.cardsData.plants) && plant.stage) {
+        const card = this.cardsData.plants.find(c => c.id === plant.id || c.id === (plant.species || ''));
+        if (card && card.states) {
+          // Some internal stage names (like 'sapling') may not exactly match card state keys.
+          let stateKey = plant.stage;
+          if (!card.states[stateKey]) {
+            if (stateKey === 'sapling' && card.states['mature']) stateKey = 'mature';
           }
-          continue;
-        }
-        // IMMUNITY: If plant has 'sunlight' condition, immune to 'frost' vulnerability
-        if (event === 'frost' && card.activeConditions['sunlight']) {
-          if (!suppressLogging) {
-            console.log(`☀️ ${card.name} is immune to frost due to sunlight condition.`);
-          }
-          continue;
-        }
-        // Any vulnerability met should send plant to 'dead' state
-        card.state = "dead";
-        if (!suppressLogging) {
-          console.log(`☠️ ${card.name} died (was ${stageDef.name || card.state}) due to ${event} (vulnerability met).`);
-        }
-        return; // stop processing this card
-      }
-    }
 
-    // If event fulfills a needed resource for current stage, record it
-    const needs = stageDef.needs || {};
-    const reqResources = needs.resources || [];
-    for (const cond of Object.keys(card.activeConditions)) {
-      if (reqResources.includes(cond)) {
-        card.resourcesThisSeason.add(cond);
-      }
-    }
-  }
-
-  // Process plant progression at season end
-  processPlantProgression(card, currentSeason) {
-    const stageDef = card.definition.states[card.state];
-    if (!stageDef) return;
-
-    // Update harvest readiness for mature plants based on season
-    if (card.state === 'mature') {
-      card.harvestReady = (currentSeason === 'spring');
-    } else {
-      card.harvestReady = false;
-    }
-
-    // Age tracking: increment age at the end of winter (1 year = 4 seasons)
-    if (!card._seasonCounter) card._seasonCounter = 0;
-    card._seasonCounter++;
-    if (card._seasonCounter >= 4) {
-      card._seasonCounter = 0;
-      card.age = (card.age || 0) + 1;
-      // Check lifespan
-      if (card.lifespan && card.age >= card.lifespan && card.state !== 'dead') {
-        card.state = 'dead';
-        card.resetStateProgress && card.resetStateProgress();
-        card._deadCounter = 0; // Track how long in dead state
-        return;
-      }
-    }
-
-    // Dead state compost/seed logic
-    if (card.state === 'dead') {
-      return this.processDeadPlant(card, stageDef);
-    }
-
-    // Normal progression logic
-    const needs = stageDef.needs || {};
-    const seasonsAllowed = needs.season || [];
-    // If this stage can progress in this season:
-    if (seasonsAllowed.includes(currentSeason)) {
-      const requiredResources = needs.resources || [];
-      const haveAll = requiredResources.every((r) => card.resourcesThisSeason.has(r));
-      if (haveAll) {
-        // Increment state progress
-        card.stateProgress = (card.stateProgress || 0) + 1;
-        // Check transitions from JSON
-        const transitions = stageDef.transitions || [];
-        if (transitions.length > 0) {
-          const t = transitions[0];
-          const min = t.actions.min;
-          const max = t.actions.max;
-          // If min==max, use that; if not, store a random threshold on card
-          if (card._transitionThreshold === undefined) {
-            card._transitionThreshold = (min === max) ? min : (Math.floor(Math.random() * (max - min + 1)) + min);
-          }
-          if (card.stateProgress >= card._transitionThreshold) {
-            card.state = t.to;
-            card.resetStateProgress();
-            delete card._transitionThreshold;
-            
-            // Set harvest readiness if transitioning to mature state
-            if (t.to === 'mature') {
-              card.harvestReady = (currentSeason === 'spring');
+          const stateDef = card.states[stateKey];
+          if (stateDef && typeof stateDef.durationMonths === 'number' && stateDef.durationMonths > 0) {
+            if (plant.stageAge >= stateDef.durationMonths) {
+              // perform transition to next state if defined
+              const nextState = stateDef.next;
+              if (nextState) {
+                plant.stage = nextState;
+                plant.stageAge = 0; // reset counter on transition
+              }
             }
-            
-            console.log(`➡️ ${card.name} advanced to ${card.state}`);
           }
         }
       }
+    } catch (e) {
+      // ignore duration/transition errors to avoid breaking plant updates
     }
-    // Reset resource record for next season
-    card.resetSeasonResources();
-  }
 
-  processDeadPlant(card, stageDef) {
-    card._deadCounter = (card._deadCounter || 0) + 1;
-    // Check if needs are met (use dead state's needs if any, else always compost)
-    const deadNeeds = stageDef.needs || {};
-    const requiredResources = deadNeeds.resources || [];
-    const haveAll = requiredResources.every((r) => card.resourcesThisSeason && card.resourcesThisSeason.has(r));
-    // Get transition threshold from Cards.json
-    const deadTransitions = stageDef.transitions || [];
-    let deadThreshold = 1;
-    if (deadTransitions.length > 0) {
-      const t = deadTransitions[0];
-      deadThreshold = (t.actions.min === t.actions.max) ? t.actions.min : (Math.floor(Math.random() * (t.actions.max - t.actions.min + 1)) + t.actions.min);
-    }
-    if (card._deadCounter >= deadThreshold && (haveAll || requiredResources.length === 0)) {
-      // Transition to compost state
-      card.state = 'compost';
-      card._deadCounter = 0;
-      card.resetStateProgress && card.resetStateProgress();
-      console.log(`🌱 ${card.name} is now compost and can be planted into.`);
-      return 'compost';
-    }
-    // Always reset resources for next season
-    card.resetSeasonResources && card.resetSeasonResources();
-    return 'dead';
-  }
+    // Update plant's current vector to reflect environment
+    plant.current = { ...w };
 
-  // Handle compost planting
-  processCompostPlanting(card, player, cardDefinitionId) {
-    if (card.state === 'compost' && card.justPlantedSeed) {
-      // Create new seedling to replace compost
-      const Card = require('../Card');
-      const all = [...this.cardsData.plants, ...this.cardsData.ingredients, ...this.cardsData.teas];
-      const def = all.find((c) => c.id === cardDefinitionId);
-      if (def) {
-        const newSeedling = new Card(def, 'seedling');
-        return newSeedling;
-      }
+    // Log summary
+    try {
+      const vec = [w.light, w.temp, w.humidity, w.wind].map(v => v.toFixed(2));
+      console.log(`🌤 Weather Vector: [${vec.join(', ')}]`);
+      console.log(`🌿 ${plant.id || plant.name || 'plant'} Match: ${match.toFixed(2)} | Growth: ${plant.growth.toFixed(2)} | Health: ${plant.health.toFixed(2)} | Stage: ${plant.stage}`);
+    } catch (e) {
+      // ignore logging errors
     }
-    return null;
+
+    return plant;
   }
+}
+
+// Helpers
+function euclideanDistance4(a, b) {
+  const dl = (a.light - b.light) || 0;
+  const dt = (a.temp - b.temp) || 0;
+  const dh = (a.humidity - b.humidity) || 0;
+  const dw = (a.wind - b.wind) || 0;
+  return Math.sqrt(dl * dl + dt * dt + dh * dh + dw * dw);
+}
+
+function clamp01(x) {
+  return Math.max(0, Math.min(1, x));
+}
+
+function safeNum(v) {
+  return typeof v === 'number' && !Number.isNaN(v) ? v : 0;
+}
+
+function stageForGrowth(growth, health) {
+  if (health <= 0) return 'dead';
+  if (growth <= 0.2) return 'seed';
+  if (growth <= 0.4) return 'seedling';
+  if (growth <= 0.7) return 'sapling';
+  return 'mature';
 }
 
 module.exports = PlantManager;
