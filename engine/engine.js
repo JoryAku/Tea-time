@@ -9,8 +9,22 @@ class TeaTimeEngine {
     
     // Initialize subsystems
     this.timeManager = new TimeManager();
+    // If calendar data provides a starting month index, initialize TimeManager to it
+    if (calendarData && calendarData.startingMonth && typeof calendarData.startingMonth.index === 'number') {
+      this.timeManager.monthIndex = calendarData.startingMonth.index;
+      this.timeManager.currentMonth = this.timeManager.months[this.timeManager.monthIndex];
+    }
     this.weatherSystem = new WeatherSystem(weatherData);
     this.calendar = calendarData;
+    // Initialize weather for the starting month if possible
+    try {
+      const startMonth = this.timeManager.getCurrentMonth();
+      if (this.weatherSystem && typeof this.weatherSystem.updateForMonth === 'function') {
+        this.weatherSystem.updateForMonth(startMonth, this.weatherData);
+      }
+    } catch (err) {
+      console.warn('Warning: failed to initialize weather for starting month', err.message);
+    }
     // Initialize player
     this.player = new Player();
     this.months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
