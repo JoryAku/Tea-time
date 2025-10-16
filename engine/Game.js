@@ -26,6 +26,21 @@ class Game {
   createTimeline(months) {
     return this.engine.createTimeline(months);
   }
+
+  // Return a lightweight weather snapshot for UI/tests
+  peekWeather() {
+    if (!this.engine || !this.engine.weatherSystem) return null;
+    const ws = this.engine.weatherSystem;
+    return {
+      month: ws.month,
+      light: ws.light,
+      temp: ws.temp,
+      humidity: ws.humidity,
+      pressureHpa: ws.getPressureHpa ? ws.getPressureHpa() : null,
+      windVector: ws.windVector || null,
+      toString: () => ws.toString(),
+    };
+  }
 }
 
 module.exports = Game;

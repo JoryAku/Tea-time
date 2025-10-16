@@ -32,12 +32,11 @@ function testStartAvailableActions() {
   console.log('✅ Start-of-game available actions validated');
 
   // Now simulate the player waiting one month and assert the month advanced and weather updated
-  const previousWeather = game.engine && game.engine.weatherSystem ? game.engine.weatherSystem.toString() : null;
+  const previousWeather = game.peekWeather() ? game.peekWeather().toString() : null;
   const advancedMonth = game.waitAction();
   console.log(`Advanced month returned: ${advancedMonth}`);
   assert.notStrictEqual(game.currentMonth, 'jan', 'Current month should have advanced after waiting');
-
-  const newWeather = game.engine && game.engine.weatherSystem ? game.engine.weatherSystem.toString() : null;
+  const newWeather = game.peekWeather() ? game.peekWeather().toString() : null;
   assert.notStrictEqual(newWeather, previousWeather, 'Weather should have updated after advancing the month');
 }
 

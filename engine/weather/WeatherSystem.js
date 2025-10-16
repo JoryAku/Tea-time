@@ -15,6 +15,9 @@ class WeatherSystem {
       this.temp = 0.5;
       this.humidity = 0.5;
       this.month = null;
+      this.pressureHpa = null;
+      this.prevPressureHpa = null;
+      this.windVector = { direction: 0, magnitude: 0 };
       return;
     }
 
@@ -23,6 +26,9 @@ class WeatherSystem {
     this.humidity = humidity;
     this.month = month; // store the month internally
     this.weatherData = null;
+    this.pressureHpa = null;
+    this.prevPressureHpa = null;
+    this.windVector = { direction: 0, magnitude: 0 };
   }
 
   updateForMonth(month, boundsData) {
@@ -37,7 +43,29 @@ class WeatherSystem {
     this.temp = b.temp.min + Math.random() * (b.temp.max - b.temp.min);
     this.humidity = b.humidity.min + Math.random() * (b.humidity.max - b.humidity.min);
 
-    return this._clamp();
+    // clamp primary vectors
+    this._clamp();
+
+    // compute a target pressure (hPa) from temp & humidity using a Gaussian-like gradient
+    const targetPressure = this._computeTargetPressureHpa(this.temp, this.humidity);
+
+    // initialize prevPressure if missing
+    if (this.prevPressureHpa == null) {
+      this.prevPressureHpa = targetPressure;
+    }
+
+    // evolve pressure gradually toward target (smooth transition)
+    const smoothing = 0.2; // 0-1, higher -> faster change
+    this.prevPressureHpa = this.prevPressureHpa + (targetPressure - this.prevPressureHpa) * smoothing;
+    this.pressureHpa = this.prevPressureHpa;
+
+    // generate a simple wind vector based on pressure change magnitude
+    const pressureDelta = targetPressure - this.prevPressureHpa;
+    const magnitude = Math.max(0, Math.min(1, Math.abs(pressureDelta) / 20));
+    const direction = Math.floor(Math.random() * 360);
+    this.windVector = { direction, magnitude };
+
+    return this;
   }
 
   // Return as array (for calculations, visualization, etc.)
@@ -118,6 +146,25 @@ class WeatherSystem {
     return weather;
   }
 
+  // Compute a target pressure in hPa from normalized temp/humidity (0..1)
+  _computeTargetPressureHpa(temp, humidity) {
+    // Gaussian contribution centered on moderate temp (0.5), sigma tuned for sensitivity
+    const sigma = 0.18;
+    const gauss = Math.exp(-Math.pow((temp - 0.5), 2) / (2 * sigma * sigma));
+
+    // humidity reduces pressure (higher humidity -> lower pressure tendency)
+    const humidityFactor = 1 - humidity; // 1 = dry -> higher pressure
+
+    // combine with weights
+    const combined = (gauss * 0.65) + (humidityFactor * 0.35);
+    const norm = Math.max(0, Math.min(1, combined));
+
+    // Map normalized pressure to realistic hPa range (980 - 1040 hPa)
+    const minHpa = 980;
+    const maxHpa = 1040;
+    return minHpa + norm * (maxHpa - minHpa);
+  }
+
   /**
    * Calculates a simplified relative pressure value (0-1) based on
    * normalized temperature and humidity vectors.
@@ -133,9 +180,16 @@ class WeatherSystem {
     return Math.max(0, Math.min(1, pressure));
   }
 
+  // Return the latest pressure in hPa (or null)
+  getPressureHpa() {
+    return this.pressureHpa || null;
+  }
+
   // Debug helper
   toString() {
-    return `Month: ${this.month || "unknown"} ☀️ Light: ${this.light.toFixed(2)}, 🌡️ Temp: ${this.temp.toFixed(2)}, 💧 Humidity: ${this.humidity.toFixed(2)}`;
+    const pressureStr = this.pressureHpa ? `${this.pressureHpa.toFixed(1)} hPa` : 'n/a';
+    const windStr = this.windVector ? `${this.windVector.magnitude.toFixed(2)} @ ${this.windVector.direction}°` : 'n/a';
+    return `Month: ${this.month || "unknown"} ☀️ Light: ${this.light.toFixed(2)}, 🌡️ Temp: ${this.temp.toFixed(2)}, 💧 Humidity: ${this.humidity.toFixed(2)}, 🔵 Pressure: ${pressureStr}, 🌬 Wind: ${windStr}`;
   }
 }
 
