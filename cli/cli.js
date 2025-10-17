@@ -54,13 +54,14 @@ function showState() {
 
 function showGarden() {
   try {
-    const snapshot = (game.peekGarden && typeof game.peekGarden === 'function') ? game.peekGarden() : null;
+    // Request detailed plant info and layers if supported
+    const snapshot = (game.peekGarden && typeof game.peekGarden === 'function') ? game.peekGarden({ detailed: true, layers: true }) : null;
     if (!snapshot) {
       console.log('\nNo garden data available.');
       return;
     }
 
-    const { plants, field } = snapshot;
+  const { plants, field, layers } = snapshot;
 
     console.log('\n=== Garden Snapshot ===');
 
@@ -80,8 +81,8 @@ function showGarden() {
     const w = field.width || 0;
     const h = field.height || 0;
 
-    // Create empty grid filled with '.'
-    const grid = new Array(h).fill(null).map(() => new Array(w).fill('.'));
+  // Create empty grid filled with '.'
+  const grid = new Array(h).fill(null).map(() => new Array(w).fill('.'));
 
     // Place plants that have x/y inside the visible grid
     const placed = [];
@@ -102,6 +103,23 @@ function showGarden() {
     let header = '    ';
     for (let x = 0; x < w; x++) header += x.toString().padStart(3, ' ');
     console.log(header);
+
+    // If layers snapshot available, print a compact per-cell summary (top-layer light)
+    if (Array.isArray(layers)) {
+      console.log('\nLayered light (emergent light per cell)');
+      let header2 = '    ';
+      for (let x = 0; x < w; x++) header2 += x.toString().padStart(6, ' ');
+      console.log(header2);
+      for (let y = 0; y < h; y++) {
+        let line = y.toString().padStart(3, ' ') + ' |';
+        for (let x = 0; x < w; x++) {
+          const cell = layers[y] && layers[y][x] ? layers[y][x] : null;
+          const emergentLight = cell && cell.emergent ? (Math.round((cell.emergent.light || 0) * 100) / 100).toFixed(2) : '  . ';
+          line += '  ' + emergentLight.toString().padStart(4, ' ');
+        }
+        console.log(line);
+      }
+    }
 
     for (let y = 0; y < h; y++) {
       let line = y.toString().padStart(3, ' ') + ' |';

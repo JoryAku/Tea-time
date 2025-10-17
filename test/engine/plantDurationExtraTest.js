@@ -25,7 +25,7 @@ function testFloweringToFruiting() {
 }
 
 function testFruitingToSeedAfterThreeMonths() {
-  console.log('Test: fruiting -> seed after 3 months');
+  console.log('Test: fruiting -> mature after 3 months');
   const pm = new PlantManager(cards);
 
   const plant = {
@@ -40,17 +40,17 @@ function testFruitingToSeedAfterThreeMonths() {
 
   const weather = { light: 0.85, temp: 0.8, humidity: 0.7, wind: 0.55 };
 
-  // 3 months -> should transition to seed
+  // 3 months -> should transition to mature
   pm.updatePlant(plant, weather);
   pm.updatePlant(plant, weather);
   pm.updatePlant(plant, weather);
 
-  assert.strictEqual(plant.stage, 'seed', `Expected fruiting -> seed after 3 months but was ${plant.stage}`);
-  console.log('  fruiting -> seed passed');
+  assert.strictEqual(plant.stage, 'mature', `Expected fruiting -> mature after 3 months but was ${plant.stage}`);
+  console.log('  fruiting -> mature passed');
 }
 
 function testFruitingDoesNotTransitionEarly() {
-  console.log('Test: fruiting does NOT transition before 3 months');
+  console.log('Test: fruiting does NOT transition to mature before 3 months');
   const pm = new PlantManager(cards);
 
   const plant = {
@@ -65,11 +65,11 @@ function testFruitingDoesNotTransitionEarly() {
 
   const weather = { light: 0.85, temp: 0.8, humidity: 0.7, wind: 0.55 };
 
-  // 2 months -> should NOT yet transition to seed
+  // 2 months -> should NOT yet transition to mature
   pm.updatePlant(plant, weather);
   pm.updatePlant(plant, weather);
 
-  assert.notStrictEqual(plant.stage, 'seed', `Did not expect fruiting -> seed after 2 months, but was ${plant.stage}`);
+  assert.notStrictEqual(plant.stage, 'mature', `Did not expect fruiting -> mature after 2 months, but was ${plant.stage}`);
   console.log('  fruiting early-transition negative passed');
 }
 

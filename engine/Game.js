@@ -89,25 +89,96 @@ class Game {
   }
 
   // Return a lightweight garden snapshot for UI/tests
-  peekGarden() {
+  peekGarden(options = {}) {
     const garden = (this.player && Array.isArray(this.player.garden)) ? this.player.garden : [];
-    const plants = garden.map(p => ({
-      id: p.id || p.name || null,
-      name: p.name || null,
-      stage: p.stage || null,
-      health: typeof p.health === 'number' ? p.health : null,
-      growth: typeof p.growth === 'number' ? p.growth : null,
-      x: (typeof p.x === 'number') ? p.x : null,
-      y: (typeof p.y === 'number') ? p.y : null,
-    }));
 
-    const field = (this.engine && this.engine.gardenField) ? {
+    // Detailed plant objects if requested, otherwise a compact summary
+    const plants = garden.map(p => {
+      const base = (options.detailed) ? Object.assign({}, p) : {
+        id: p.id || p.name || null,
+        name: p.name || null,
+        stage: p.stage || null,
+        health: typeof p.health === 'number' ? p.health : null,
+        growth: typeof p.growth === 'number' ? p.growth : null,
+        x: (typeof p.x === 'number') ? p.x : null,
+        y: (typeof p.y === 'number') ? p.y : null,
+      };
+
+      // add per-plant computed environment snapshot (merged local + weather) when engine available
+      try {
+        if (this.engine && this.engine.gardenField && this.engine.weatherSystem) {
+          const gf = this.engine.gardenField;
+          const cellX = (typeof p.x === 'number') ? p.x : null;
+          const cellY = (typeof p.y === 'number') ? p.y : null;
+          const cellIndex = (cellX === null || cellY === null) ? garden.indexOf(p) % (gf ? gf.size : 1) : null;
+          const local = gf ? (cellIndex !== null ? gf.getPlantLocalByIndex(cellIndex, p) : gf.getPlantLocal(cellX, cellY, p)) : { light:0.5, temp:0.5, humidity:0.5, wind:0 };
+          const weatherVec = { light: this.engine.weatherSystem.light, temp: this.engine.weatherSystem.temp, humidity: this.engine.weatherSystem.humidity, wind: this.engine.weatherSystem.windVector ? this.engine.weatherSystem.windVector.magnitude : 0 };
+          const merged = { light: (weatherVec.light * 0.7) + (local.light * 0.3), temp: (weatherVec.temp * 0.7) + (local.temp * 0.3), humidity: (weatherVec.humidity * 0.7) + (local.humidity * 0.3), wind: (weatherVec.wind * 0.7) + (local.wind * 0.3) };
+          base.plantEnv = merged;
+        }
+      } catch (e) {
+        // ignore environment snapshot errors
+      }
+
+      return base;
+    });
+
+    // Basic field summary
+    const fieldSummary = (this.engine && this.engine.gardenField) ? {
       width: this.engine.gardenField.width,
       height: this.engine.gardenField.height,
       size: this.engine.gardenField.size
     } : null;
 
-    return { plants, field };
+    // If caller requested per-layer snapshot and the engine provides gardenField.snapshotLayers(), use it.
+    let layers = null;
+    if (options.layers && this.engine && this.engine.gardenField) {
+      const gf = this.engine.gardenField;
+      // Prefer a snapshotLayers API if present
+      if (typeof gf.snapshotLayers === 'function') {
+        try {
+          layers = gf.snapshotLayers();
+        } catch (e) {
+          // fallback to building a manual snapshot
+          layers = null;
+        }
+      }
+
+      // Fallback: build a per-cell per-layer snapshot using available APIs
+      if (!layers) {
+        layers = [];
+        try {
+          for (let y = 0; gf && y < gf.height; y++) {
+            const row = [];
+            for (let x = 0; x < gf.width; x++) {
+              const cell = gf.getCell ? gf.getCell(x, y) : null;
+              if (cell) {
+                // If the cell exposes a per-layer object, use it; otherwise use toObject()
+                if (typeof cell.toLayerObject === 'function') {
+                  row.push(cell.toLayerObject());
+                } else if (typeof cell.toObject === 'function') {
+                  // toObject may return an aggregated view; include it under a default layer
+                  row.push({ aggregated: cell.toObject() });
+                } else {
+                  // best-effort: clone enumerable properties
+                  const clone = {};
+                  for (const k in cell) clone[k] = cell[k];
+                  row.push(clone);
+                }
+              } else {
+                row.push(null);
+              }
+            }
+            layers.push(row);
+          }
+        } catch (e) {
+          // if anything fails, set layers back to null
+          layers = null;
+        }
+      }
+    }
+
+    return { plants, field: fieldSummary, layers };
   }
 }
 
