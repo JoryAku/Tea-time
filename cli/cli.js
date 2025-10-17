@@ -52,6 +52,88 @@ function showState() {
   }
 }
 
+function showGarden() {
+  try {
+    const snapshot = (game.peekGarden && typeof game.peekGarden === 'function') ? game.peekGarden() : null;
+    if (!snapshot) {
+      console.log('\nNo garden data available.');
+      return;
+    }
+
+    const { plants, field } = snapshot;
+
+    console.log('\n=== Garden Snapshot ===');
+
+    if (!field) {
+      console.log('\n(No field grid available)\nPlant list:');
+      if (!plants || plants.length === 0) {
+        console.log('  (no plants)');
+        return;
+      }
+      plants.forEach((p, i) => {
+        console.log(`  ${i + 1}) ${p.name || p.id} — stage:${p.stage} health:${p.health} growth:${p.growth} coords:${p.x},${p.y}`);
+      });
+      return;
+    }
+
+    // Build a simple text grid of the field (0..width-1, 0..height-1)
+    const w = field.width || 0;
+    const h = field.height || 0;
+
+    // Create empty grid filled with '.'
+    const grid = new Array(h).fill(null).map(() => new Array(w).fill('.'));
+
+    // Place plants that have x/y inside the visible grid
+    const placed = [];
+    (plants || []).forEach((p, i) => {
+      if (typeof p.x === 'number' && typeof p.y === 'number') {
+        const x = p.x;
+        const y = p.y;
+        if (x >= 0 && x < w && y >= 0 && y < h) {
+          const label = (p.name && p.name[0]) ? p.name[0].toUpperCase() : (p.id ? p.id[0].toUpperCase() : 'P');
+          // If occupied, mark as '*'
+          grid[y][x] = grid[y][x] === '.' ? label : '*';
+          placed.push({ label, x, y, name: p.name || p.id, stage: p.stage, health: p.health, growth: p.growth });
+        }
+      }
+    });
+
+    // Print header with x coordinates
+    let header = '    ';
+    for (let x = 0; x < w; x++) header += x.toString().padStart(3, ' ');
+    console.log(header);
+
+    for (let y = 0; y < h; y++) {
+      let line = y.toString().padStart(3, ' ') + ' |';
+      for (let x = 0; x < w; x++) {
+        line += '  ' + (grid[y][x] || '.');
+      }
+      console.log(line);
+    }
+
+    console.log('\nPlant details:');
+    if (placed.length === 0) {
+      console.log('  (no plants within visible grid)');
+    } else {
+      placed.forEach((p, i) => {
+        console.log(`  ${i + 1}) ${p.name} @ (${p.x},${p.y}) — ${p.label} stage:${p.stage} health:${p.health} growth:${p.growth}`);
+      });
+    }
+
+    // Also list plants without coordinates
+    const unplaced = (plants || []).filter(p => typeof p.x !== 'number' || typeof p.y !== 'number');
+    if (unplaced.length > 0) {
+      console.log('\nPlants without coordinates:');
+      unplaced.forEach((p, i) => {
+        console.log(`  ${i + 1}) ${p.name || p.id} — stage:${p.stage} health:${p.health} growth:${p.growth}`);
+      });
+    }
+
+  } catch (e) {
+    console.error('Error showing garden:', e && e.message);
+  }
+}
+
 function formatActions(actions) {
   return actions.map((a, i) => `${i + 1}) ${a}`).join('\n');
 }
@@ -64,7 +146,9 @@ function promptAction() {
     : ['wait'];
 
   // Add a quit option
-  const menu = [...actions, 'quit'];
+  // Always expose the show_garden command in the CLI menu (not necessarily a player action)
+  const extraCmds = ['show_garden'];
+  const menu = [...actions, ...extraCmds, 'quit'];
 
   console.log('\nAvailable actions:');
   console.log(formatActions(menu));
@@ -109,6 +193,14 @@ function promptAction() {
           }
         } catch (err) {
           console.error('Error fetching weather:', err.message);
+        }
+        break;
+      case 'show_garden':
+      case 'garden':
+        try {
+          showGarden();
+        } catch (err) {
+          console.error('Error showing garden:', err && err.message);
         }
         break;
       default:
